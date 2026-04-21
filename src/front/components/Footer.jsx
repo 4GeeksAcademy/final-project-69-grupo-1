@@ -10,10 +10,10 @@ export const Footer = () => (
 				</div>
 				<div className="col-md-5">
 					<div className="input-group">
-						<input 
-							type="email" 
-							className="form-control border-secondary p-2" 
-							placeholder="Enter Your Email" 
+						<input
+							type="email"
+							className="form-control border-secondary p-2"
+							placeholder="Enter Your Email"
 						/>
 						<button className="btn btn-black bg-black text-white fw-bold px-4 text-uppercase" style={{ fontSize: "12px" }}>
 							Subscribe Now
@@ -33,11 +33,19 @@ export const Footer = () => (
 					<a href="#" className="text-dark text-decoration-underline fw-bold small">Pricing</a>
 					<a href="#" className="text-dark text-decoration-underline fw-bold small">Resources</a>
 				</div>
-				<div className="d-flex gap-4 fs-4 text-dark">
-					<i className="fa-brands fa-facebook cursor-pointer"></i>
-					<i className="fa-brands fa-x-twitter cursor-pointer"></i>
-					<i className="fa-brands fa-instagram cursor-pointer"></i>
-					<i className="fa-brands fa-youtube cursor-pointer"></i>
+				<div className="d-flex gap-4 fs-4">
+					<a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="text-dark">
+						<i className="fa-brands fa-facebook cursor-pointer"></i>
+					</a>
+					<a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="text-dark">
+						<i className="fa-brands fa-x-twitter cursor-pointer"></i>
+					</a>
+					<a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-dark">
+						<i className="fa-brands fa-instagram cursor-pointer"></i>
+					</a>
+					<a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="text-dark">
+						<i className="fa-brands fa-youtube cursor-pointer"></i>
+					</a>
 				</div>
 			</div>
 

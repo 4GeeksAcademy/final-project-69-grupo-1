@@ -8,13 +8,14 @@ export const Navbar = () => {
 				<div className="d-flex align-items-center gap-4">
 					<Link to="/" className="navbar-brand mb-0 h1 text-dark fw-bold">Company Logo</Link>
 					<div className="d-none d-md-flex gap-3 text-secondary" style={{ fontSize: "14px" }}>
-						<span>Nav Item 1</span>
+						
+						<Link to="/" className="text-secondary text-decoration-none cursor-pointer">Home</Link>
 						<span className="text-muted">|</span>
-						<span className="text-primary text-decoration-underline cursor-pointer">Nav Item 2</span>
+						<Link to="/item2" className="text-primary text-decoration-underline cursor-pointer">Nav Item 2</Link>
 						<span className="text-muted">|</span>
-						<span className="text-primary text-decoration-underline cursor-pointer">Nav Item 3</span>
+						<Link to="/item3" className="text-primary text-decoration-underline cursor-pointer">Nav Item 3</Link>
 						<span className="text-muted">|</span>
-						<span className="text-primary text-decoration-underline cursor-pointer">Nav Item 4</span>
+						<Link to="/item4" className="text-primary text-decoration-underline cursor-pointer">Nav Item 4</Link>
 					</div>
 				</div>
 				<div className="d-flex align-items-center gap-3">
