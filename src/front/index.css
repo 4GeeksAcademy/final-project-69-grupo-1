@@ -1,0 +1,11 @@
+/* Forzamos a que el contenedor principal ocupe toda la pantalla y empuje el footer al fondo */
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* El contenido principal crece para llenar el espacio vacío */
+.container {
+  flex: 1;
+}

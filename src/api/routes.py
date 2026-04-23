@@ -77,6 +77,18 @@ def update_organization(org_id):
     if 'contact_phone' in body:
         organization.contact_phone = body['contact_phone']
 
+    if 'name' in body:
+        organization.name = body['name']
+
+    if 'rif_nit' in body:
+        organization.rif_nit = body['rif_nit']
+
+    if 'country' in body:
+        organization.country = body['country']
+        
+    if 'suspension_reason' in body:
+        organization.suspension_reason = body['suspension_reason']
+
     db.session.commit()
 
     return jsonify({

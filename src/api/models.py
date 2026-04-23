@@ -35,6 +35,7 @@ class Organization(db.Model):
     
     # --- NUEVOS CAMPOS ADMINISTRATIVOS ---
     is_active = db.Column(db.Boolean, default=True, nullable=True) 
+    suspension_reason = db.Column(db.String(255), nullable=True)
     subscription_plan = db.Column(db.String(50), default='PRUEBA_GRATIS', nullable=True)
     billing_email = db.Column(db.String(120), nullable=True) # Email para contactra
     contact_phone = db.Column(db.String(50), nullable=True) #Telefono para contactar
