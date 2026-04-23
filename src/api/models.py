@@ -33,6 +33,13 @@ class Organization(db.Model):
     country = db.Column(db.String(50), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     
+    # --- NUEVOS CAMPOS ADMINISTRATIVOS ---
+    is_active = db.Column(db.Boolean, default=True, nullable=True) 
+    subscription_plan = db.Column(db.String(50), default='PRUEBA_GRATIS', nullable=True)
+    billing_email = db.Column(db.String(120), nullable=True) # Email para contactra
+    contact_phone = db.Column(db.String(50), nullable=True) #Telefono para contactar
+    # -------------------------------------
+
     owner_id = db.Column(
         db.Integer, 
         db.ForeignKey('users.id', use_alter=True, name='fk_organization_owner'), 
@@ -52,6 +59,10 @@ class Organization(db.Model):
             "name": self.name,
             "rif_nit": self.rif_nit,
             "country": self.country,
+            "is_active": self.is_active,
+            "subscription_plan": self.subscription_plan,
+            "billing_email": self.billing_email,
+            "contact_phone": self.contact_phone,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "owner_id": self.owner_id
         }
