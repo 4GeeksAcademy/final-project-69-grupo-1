@@ -11,7 +11,7 @@ api = Blueprint('api', __name__)
 # Allow CORS requests to this API
 CORS(api)
 
-# COMIENZO DE LOS ENDPOINTS PARA CLÍNICAS
+## COMIENZO DE LOS ENDPOINTS PARA CLÍNICAS
 @api.route('/clinics', methods=['GET', 'POST'])
 def handle_clinics():
     # Método GET: Obtener todas las clínicas
@@ -33,7 +33,9 @@ def handle_clinics():
         new_clinic = Clinic(
             nombre=body['nombre'],
             rif=body['rif'],
-            ubicacion=body.get('ubicacion', 'Caracas') # Valor por defecto acorde al MVP
+            ubicacion=body.get('ubicacion', 'Caracas'), # Valor por defecto
+            telefono=body.get('telefono', None),        # Capturamos el teléfono
+            correo=body.get('correo', None)             # Capturamos el correo
         )
 
         db.session.add(new_clinic)
@@ -44,36 +46,43 @@ def handle_clinics():
             "clinic": new_clinic.serialize()
         }), 201
     
-@api.route('/clinics/<int:clinic_id>', methods=['PUT'])
-def update_clinic(clinic_id):
+@api.route('/clinics/<int:clinic_id>', methods=['PUT', 'DELETE'])
+def update_or_delete_clinic(clinic_id):
     clinic = Clinic.query.get(clinic_id)
     
     if not clinic:
         return jsonify({"error": "Clínica no encontrada"}), 404
 
-    body = request.get_json()
-    if not body:
-        return jsonify({"error": "No se enviaron datos para actualizar"}), 400
+    # Método DELETE: Eliminar la clínica por completo
+    if request.method == 'DELETE':
+        db.session.delete(clinic)
+        db.session.commit()
+        return jsonify({"message": "Clínica eliminada exitosamente"}), 200
 
-    # Actualización dinámica de campos
-    if 'is_active' in body:
-        clinic.is_active = body['is_active']
-    
-    if 'nombre' in body:
-        clinic.nombre = body['nombre']
+    # Método PUT: Actualizar datos de la clínica
+    if request.method == 'PUT':
+        body = request.get_json()
+        if not body:
+            return jsonify({"error": "No se enviaron datos para actualizar"}), 400
 
-    if 'rif' in body:
-        clinic.rif = body['rif']
+        if 'is_active' in body:
+            clinic.is_active = body['is_active']
+        if 'nombre' in body:
+            clinic.nombre = body['nombre']
+        if 'rif' in body:
+            clinic.rif = body['rif']
+        if 'ubicacion' in body:
+            clinic.ubicacion = body['ubicacion']
+        if 'telefono' in body:
+            clinic.telefono = body['telefono']  # Actualizamos el teléfono
+        if 'correo' in body:
+            clinic.correo = body['correo']      # Actualizamos el correo
+        if 'suspension_reason' in body:
+            clinic.suspension_reason = body['suspension_reason']
 
-    if 'ubicacion' in body:
-        clinic.ubicacion = body['ubicacion']
-        
-    if 'suspension_reason' in body:
-        clinic.suspension_reason = body['suspension_reason']
+        db.session.commit()
 
-    db.session.commit()
-
-    return jsonify({
-        "message": "Clínica actualizada exitosamente",
-        "clinic": clinic.serialize()
-    }), 200
+        return jsonify({
+            "message": "Clínica actualizada exitosamente",
+            "clinic": clinic.serialize()
+        }), 200

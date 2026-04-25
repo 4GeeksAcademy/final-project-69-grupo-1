@@ -1,23 +1,29 @@
 import React, { useEffect, useState } from "react";
 import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
 
+// Importamos los modales
+import { ToggleStatusModal } from "../components/modals/ToggleStatusModal.jsx";
+import { EditClinicModal } from "../components/modals/EditClinicModal.jsx";
+import { DeleteClinicModal } from "../components/modals/DeleteClinicModal.jsx";
+import { ViewClinicDetailsModal } from "../components/modals/ViewClinicDetailsModal.jsx";
+
 export const AdminClinics = () => {
     const { store, dispatch } = useGlobalReducer();
 
     // ESTADOS DEL FORMULARIO DE REGISTRO
     const [showForm, setShowForm] = useState(false);
-    const initialFormState = { nombre: "", rif: "", ubicacion: "" };
+    const initialFormState = { nombre: "", rif: "", ubicacion: "", telefono: "", correo: "" };
     const [formData, setFormData] = useState(initialFormState);
 
-    // ESTADOS PARA EL MODAL DE SUSPENDER/REACTIVAR
+    // ESTADOS PARA LOS MODALES
     const [showStatusModal, setShowStatusModal] = useState(false);
-    const [clinicToToggle, setClinicToToggle] = useState(null);
-    const [suspensionReason, setSuspensionReason] = useState("Falta de pago");
-
-    // ESTADOS PARA EL MODAL/FORMULARIO DE EDICIÓN
     const [showEditModal, setShowEditModal] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
+
+    const [selectedClinic, setSelectedClinic] = useState(null);
     const [editFormData, setEditFormData] = useState(initialFormState);
-    const [clinicToEdit, setClinicToEdit] = useState(null);
+    const [suspensionReason, setSuspensionReason] = useState("Falta de pago");
 
     // ESTADO PARA EL BUSCADOR
     const [searchTerm, setSearchTerm] = useState("");
@@ -37,7 +43,7 @@ export const AdminClinics = () => {
 
     useEffect(() => { loadClinics(); }, []);
 
-    // EVENTOS
+    // EVENTOS DE FORMULARIO
     const handleChange = (e, isEdit = false) => {
         if (isEdit) {
             setEditFormData({ ...editFormData, [e.target.name]: e.target.value });
@@ -46,7 +52,8 @@ export const AdminClinics = () => {
         }
     };
 
-    // CREAR CLÍNICA
+    // --- FUNCIONES CRUD ---
+
     const handleCreateClinic = async (e) => {
         e.preventDefault();
         try {
@@ -69,17 +76,15 @@ export const AdminClinics = () => {
         }
     };
 
-    // SUSPENSIÓN / REACTIVACION
     const executeToggle = async () => {
         try {
             const backendUrl = import.meta.env.VITE_BACKEND_URL;
-
             const payload = {
-                is_active: !clinicToToggle.is_active,
-                suspension_reason: clinicToToggle.is_active ? suspensionReason : null
+                is_active: !selectedClinic.is_active,
+                suspension_reason: selectedClinic.is_active ? suspensionReason : null
             };
 
-            const response = await fetch(backendUrl + `/api/clinics/${clinicToToggle.id}`, {
+            const response = await fetch(backendUrl + `/api/clinics/${selectedClinic.id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -87,7 +92,7 @@ export const AdminClinics = () => {
 
             if (response.ok) {
                 setShowStatusModal(false);
-                setClinicToToggle(null);
+                setSelectedClinic(null);
                 setSuspensionReason("Falta de pago");
                 loadClinics();
             }
@@ -96,16 +101,11 @@ export const AdminClinics = () => {
         }
     };
 
-    // EJECUTAR EDICION 
     const executeEdit = async (e) => {
         e.preventDefault();
-
-        const isConfirmed = window.confirm(`¿Estás seguro de guardar los cambios para ${clinicToEdit.nombre}?`);
-        if (!isConfirmed) return;
-
         try {
             const backendUrl = import.meta.env.VITE_BACKEND_URL;
-            const response = await fetch(backendUrl + `/api/clinics/${clinicToEdit.id}`, {
+            const response = await fetch(backendUrl + `/api/clinics/${selectedClinic.id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(editFormData)
@@ -113,7 +113,7 @@ export const AdminClinics = () => {
 
             if (response.ok) {
                 setShowEditModal(false);
-                setClinicToEdit(null);
+                setSelectedClinic(null);
                 loadClinics();
             } else {
                 alert("Error al actualizar la clínica.");
@@ -122,6 +122,48 @@ export const AdminClinics = () => {
             console.error("Error:", error);
         }
     };
+
+    const executeDelete = async () => {
+        try {
+            const backendUrl = import.meta.env.VITE_BACKEND_URL;
+            const response = await fetch(backendUrl + `/api/clinics/${selectedClinic.id}`, {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" }
+            });
+
+            if (response.ok) {
+                setShowDeleteModal(false);
+                setSelectedClinic(null);
+                loadClinics();
+            } else {
+                alert("Error al eliminar la clínica.");
+            }
+        } catch (error) {
+            console.error("Error:", error);
+        }
+    };
+
+    const handleToggleUserBan = async (clinicId, userId, newStatus) => {
+        const isConfirmed = window.confirm(`¿Seguro que deseas ${newStatus ? 'quitar el veto' : 'vetar'} a este usuario?`);
+        if (!isConfirmed) return;
+
+        try {
+            const backendUrl = import.meta.env.VITE_BACKEND_URL;
+            const response = await fetch(backendUrl + `/api/users/${userId}/ban`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ is_active: newStatus })
+            });
+
+            if (response.ok) {
+                loadClinics();
+                setShowDetailsModal(false);
+            }
+        } catch (error) {
+            console.error("Error vetando usuario:", error);
+        }
+    };
+
 
     // Filtro para el buscador
     const filteredClinics = store.clinics?.filter(clinic =>
@@ -158,6 +200,14 @@ export const AdminClinics = () => {
                             <label className="form-label fw-bold">Ubicación *</label>
                             <input type="text" className="form-control" name="ubicacion" value={formData.ubicacion} onChange={(e) => handleChange(e)} placeholder="Ej: Caracas, Miranda" required />
                         </div>
+                        <div className="col-md-6">
+                            <label className="form-label fw-bold">Teléfono</label>
+                            <input type="text" className="form-control" name="telefono" value={formData.telefono} onChange={(e) => handleChange(e)} placeholder="Ej: 0414-1234567" />
+                        </div>
+                        <div className="col-md-6">
+                            <label className="form-label fw-bold">Correo de Contacto</label>
+                            <input type="email" className="form-control" name="correo" value={formData.correo} onChange={(e) => handleChange(e)} placeholder="Ej: contacto@vetsalud.com" />
+                        </div>
                         <div className="col-12 d-flex justify-content-end mt-3">
                             <button type="submit" className="btn btn-success px-5">Guardar Clínica</button>
                         </div>
@@ -178,17 +228,19 @@ export const AdminClinics = () => {
                 </div>
             </div>
 
-            {/* TABLA PRINCIPAL */}
+            {/* TABLA PRINCIPAL ACTUALIZADA CON CONTACTO */}
             <div className="card shadow-sm border-0 overflow-auto">
-                <table className="table table-hover mb-0 text-center align-middle" style={{ minWidth: "900px" }}>
+                <table className="table table-hover mb-0 text-center align-middle" style={{ minWidth: "1100px" }}>
                     <thead className="table-dark">
                         <tr>
                             <th>ID</th>
                             <th>Nombre</th>
                             <th>RIF</th>
-                            <th>Ubicación</th>
+                            <th>Teléfono</th>
+                            <th>Correo</th>
                             <th>Estado</th>
-                            <th>Acciones</th>
+                            <th>Acciones Básicas</th>
+                            <th>Administración</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -198,7 +250,8 @@ export const AdminClinics = () => {
                                     <td className="fw-bold text-muted">#{clinic.id}</td>
                                     <td className="fw-semibold text-start">{clinic.nombre}</td>
                                     <td>{clinic.rif}</td>
-                                    <td>{clinic.ubicacion || "N/A"}</td>
+                                    <td>{clinic.telefono || <span className="text-muted">N/A</span>}</td>
+                                    <td>{clinic.correo || <span className="text-muted">N/A</span>}</td>
                                     <td>
                                         {clinic.is_active ? (
                                             <span className="badge bg-success">Activa</span>
@@ -211,95 +264,70 @@ export const AdminClinics = () => {
                                     </td>
                                     <td>
                                         <div className="d-flex justify-content-center gap-2">
-                                            <button className="btn btn-sm btn-outline-primary" onClick={() => { setClinicToEdit(clinic); setEditFormData({ nombre: clinic.nombre, rif: clinic.rif, ubicacion: clinic.ubicacion || "" }); setShowEditModal(true); }}>
+                                            <button className="btn btn-sm btn-outline-info" onClick={() => { setSelectedClinic(clinic); setShowDetailsModal(true); }}>
+                                                Detalles / Vetar
+                                            </button>
+                                            <button className="btn btn-sm btn-outline-primary" onClick={() => {
+                                                setSelectedClinic(clinic);
+                                                setEditFormData({ nombre: clinic.nombre, rif: clinic.rif, ubicacion: clinic.ubicacion || "", telefono: clinic.telefono || "", correo: clinic.correo || "" });
+                                                setShowEditModal(true);
+                                            }}>
                                                 Editar
                                             </button>
-                                            <button className={`btn btn-sm ${clinic.is_active ? 'btn-outline-danger' : 'btn-outline-success'}`} onClick={() => { setClinicToToggle(clinic); setShowStatusModal(true); }}>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div className="d-flex justify-content-center gap-2">
+                                            <button className={`btn btn-sm ${clinic.is_active ? 'btn-outline-warning' : 'btn-outline-success'}`} onClick={() => { setSelectedClinic(clinic); setShowStatusModal(true); }}>
                                                 {clinic.is_active ? "Suspender" : "Reactivar"}
+                                            </button>
+                                            <button className="btn btn-sm btn-outline-danger" onClick={() => { setSelectedClinic(clinic); setShowDeleteModal(true); }}>
+                                                Eliminar
                                             </button>
                                         </div>
                                     </td>
                                 </tr>
                             ))
                         ) : (
-                            <tr><td colSpan="6" className="text-center py-4">No se encontraron clínicas.</td></tr>
+                            <tr><td colSpan="8" className="text-center py-4">No se encontraron clínicas.</td></tr>
                         )}
                     </tbody>
                 </table>
             </div>
 
-            {/* MODAL DE CONFIRMACIÓN DE ESTADO (CON MOTIVO) */}
-            {showStatusModal && (
-                <div className="modal d-block" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-                    <div className="modal-dialog modal-dialog-centered">
-                        <div className="modal-content">
-                            <div className="modal-header bg-warning">
-                                <h5 className="modal-title">Confirmación de Acción</h5>
-                                <button type="button" className="btn-close" onClick={() => setShowStatusModal(false)}></button>
-                            </div>
-                            <div className="modal-body text-center fs-5">
-                                ¿Está seguro de <strong>{clinicToToggle?.is_active ? "suspender" : "reactivar"}</strong> la clínica <span className="text-primary fw-bold">{clinicToToggle?.nombre}</span>?
+            {/* INSTANCIAS DE LOS MODALES */}
 
-                                {clinicToToggle?.is_active && (
-                                    <div className="mt-4 text-start">
-                                        <label className="form-label fw-bold fs-6">Motivo de la suspensión:</label>
-                                        <select
-                                            className="form-select"
-                                            value={suspensionReason}
-                                            onChange={(e) => setSuspensionReason(e.target.value)}
-                                        >
-                                            <option value="Falta de pago">Falta de pago</option>
-                                            <option value="Incumplimiento de contrato">Incumplimiento de contrato</option>
-                                            <option value="Cese de operaciones">Cese de operaciones</option>
-                                            <option value="Otro">Otro</option>
-                                        </select>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="modal-footer justify-content-center">
-                                <button className="btn btn-secondary" onClick={() => setShowStatusModal(false)}>Cancelar</button>
-                                <button className={`btn ${clinicToToggle?.is_active ? 'btn-danger' : 'btn-success'}`} onClick={executeToggle}>
-                                    Sí, {clinicToToggle?.is_active ? "Suspender" : "Reactivar"}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <ToggleStatusModal
+                show={showStatusModal}
+                onClose={() => setShowStatusModal(false)}
+                onConfirm={executeToggle}
+                clinic={selectedClinic}
+                suspensionReason={suspensionReason}
+                setSuspensionReason={setSuspensionReason}
+            />
 
-            {/* MODAL DE EDICIÓN DE DATOS */}
-            {showEditModal && (
-                <div className="modal d-block" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-                    <div className="modal-dialog modal-dialog-centered modal-lg">
-                        <div className="modal-content">
-                            <div className="modal-header bg-primary text-white">
-                                <h5 className="modal-title">Editar Datos de la Clínica</h5>
-                                <button type="button" className="btn-close btn-close-white" onClick={() => setShowEditModal(false)}></button>
-                            </div>
-                            <form onSubmit={executeEdit}>
-                                <div className="modal-body text-start row g-3">
-                                    <div className="col-md-6">
-                                        <label className="form-label fw-bold">Nombre</label>
-                                        <input type="text" className="form-control" name="nombre" value={editFormData.nombre} onChange={(e) => handleChange(e, true)} required />
-                                    </div>
-                                    <div className="col-md-6">
-                                        <label className="form-label fw-bold">RIF</label>
-                                        <input type="text" className="form-control" name="rif" value={editFormData.rif} onChange={(e) => handleChange(e, true)} required />
-                                    </div>
-                                    <div className="col-md-12">
-                                        <label className="form-label fw-bold">Ubicación</label>
-                                        <input type="text" className="form-control" name="ubicacion" value={editFormData.ubicacion} onChange={(e) => handleChange(e, true)} required />
-                                    </div>
-                                </div>
-                                <div className="modal-footer">
-                                    <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)}>Cancelar</button>
-                                    <button type="submit" className="btn btn-primary">Guardar Cambios</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <EditClinicModal
+                show={showEditModal}
+                onClose={() => setShowEditModal(false)}
+                onSubmit={executeEdit}
+                editFormData={editFormData}
+                handleChange={handleChange}
+            />
+
+            <DeleteClinicModal
+                show={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+                onConfirm={executeDelete}
+                clinic={selectedClinic}
+            />
+
+            <ViewClinicDetailsModal
+                show={showDetailsModal}
+                onClose={() => setShowDetailsModal(false)}
+                clinic={selectedClinic}
+                onToggleUserBan={handleToggleUserBan}
+            />
+
         </div>
     );
 };
