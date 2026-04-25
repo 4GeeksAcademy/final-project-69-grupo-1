@@ -4,209 +4,145 @@ import enum
 
 db = SQLAlchemy()
 
+# Enums para estandarizar estados y roles
 class RoleEnum(enum.Enum):
-    ADMIN = 'ADMIN'
-    MEDICO = 'MEDICO'
-    RECEPCION = 'RECEPCION'
-    CAJA = 'CAJA'
+    SUPER_ADMIN = 'SUPER_ADMIN'
+    CLINIC_ADMIN = 'CLINIC_ADMIN'
+    DOCTOR = 'DOCTOR'
+    CLIENTE = 'CLIENTE'
 
 class AppointmentStatus(enum.Enum):
-    EN_ESPERA = 'EN_ESPERA'
-    EN_PROCESO = 'EN_PROCESO'
-    FINALIZADO = 'FINALIZADO'
-    PAGADO = 'PAGADO'
+    PROGRAMADA = 'PROGRAMADA'
+    COMPLETADA = 'COMPLETADA'
+    CANCELADA = 'CANCELADA'
 
 class PaymentMethod(enum.Enum):
     EFECTIVO = 'EFECTIVO'
-    TARJETA = 'TARJETA'
-    TRANSFERENCIA = 'TRANSFERENCIA'
-    SEGURO = 'SEGURO'
-
-
-
-class Organization(db.Model):
-    __tablename__ = 'organizations'
-
+    PUNTO_DE_VENTA = 'PUNTO_DE_VENTA'
+    PAGO_MOVIL = 'PAGO_MOVIL'
+    ZELLE = 'ZELLE'
+class Clinic(db.Model):
+    __tablename__ = 'clinics'
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(120), unique=True, nullable=False)
-    rif_nit = db.Column(db.String(50), unique=True, nullable=False)
-    country = db.Column(db.String(50), nullable=False)
+    nombre = db.Column(db.String(120), nullable=False)
+    rif = db.Column(db.String(50), unique=True, nullable=False)
+    ubicacion = db.Column(db.String(255), nullable=False)
+    is_active = db.Column(db.Boolean, default=True) # El "botón de apagado"
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    
-    # --- NUEVOS CAMPOS ADMINISTRATIVOS ---
-    is_active = db.Column(db.Boolean, default=True, nullable=True) 
-    suspension_reason = db.Column(db.String(255), nullable=True)
-    subscription_plan = db.Column(db.String(50), default='PRUEBA_GRATIS', nullable=True)
-    billing_email = db.Column(db.String(120), nullable=True) # Email para contactra
-    contact_phone = db.Column(db.String(50), nullable=True) #Telefono para contactar
-    # -------------------------------------
 
-    owner_id = db.Column(
-        db.Integer, 
-        db.ForeignKey('users.id', use_alter=True, name='fk_organization_owner'), 
-        nullable=True
-    )
-
-    owner = db.relationship('User', foreign_keys=[owner_id], post_update=True)
-    users = db.relationship('User', back_populates='organization', foreign_keys='User.tenant_id', cascade="all, delete-orphan")
-    patients = db.relationship('Patient', back_populates='organization', cascade="all, delete-orphan")
-    appointments = db.relationship('Appointment', back_populates='organization', cascade="all, delete-orphan")
-    medical_records = db.relationship('MedicalRecord', back_populates='organization', cascade="all, delete-orphan")
-    payments = db.relationship('Payment', back_populates='organization', cascade="all, delete-orphan")
+    # Relaciones
+    users = db.relationship('User', back_populates='clinic')
+    appointments = db.relationship('Appointment', back_populates='clinic')
+    payments = db.relationship('Payment', back_populates='clinic')
 
     def serialize(self):
         return {
             "id": self.id,
-            "name": self.name,
-            "rif_nit": self.rif_nit,
-            "country": self.country,
-            "is_active": self.is_active,
-            "subscription_plan": self.subscription_plan,
-            "billing_email": self.billing_email,
-            "contact_phone": self.contact_phone,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "owner_id": self.owner_id
+            "nombre": self.nombre,
+            "rif": self.rif,
+            "is_active": self.is_active
         }
 
 class User(db.Model):
     __tablename__ = 'users'
-
     id = db.Column(db.Integer, primary_key=True)
-    tenant_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     full_name = db.Column(db.String(120), nullable=False)
-    role = db.Column(db.Enum(RoleEnum), nullable=False)
-    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    role = db.Column(db.Enum(RoleEnum), default=RoleEnum.CLIENTE, nullable=False)
+    clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.id'), nullable=True) # Opcional para Super Admin
 
-    organization = db.relationship('Organization', foreign_keys=[tenant_id], back_populates='users')
-    appointments_as_doctor = db.relationship('Appointment', back_populates='doctor', foreign_keys='Appointment.doctor_id')
-    records_validated = db.relationship('MedicalRecord', back_populates='doctor', foreign_keys='MedicalRecord.doctor_id')
-    payments_processed = db.relationship('Payment', back_populates='cashier', foreign_keys='Payment.cashier_id')
+    # Relaciones
+    clinic = db.relationship('Clinic', back_populates='users')
+    pets = db.relationship('Pet', back_populates='owner')
+    appointments_as_doctor = db.relationship('Appointment', back_populates='doctor')
+    medical_records = db.relationship('MedicalRecord', back_populates='doctor')
+    payments_processed = db.relationship('Payment', back_populates='cashier')
 
     def serialize(self):
         return {
             "id": self.id,
-            "tenant_id": self.tenant_id,
             "email": self.email,
-            # NUNCA serializar el password_hash por seguridad
             "full_name": self.full_name,
-            "role": self.role.value if self.role else None,
-            "is_active": self.is_active
+            "role": self.role.value,
+            "clinic_id": self.clinic_id
         }
 
-class Patient(db.Model):
-    __tablename__ = 'patients'
-    __table_args__ = (db.UniqueConstraint('tenant_id', 'document_id', name='uq_tenant_document'),)
-
+class Pet(db.Model):
+    __tablename__ = 'pets'
     id = db.Column(db.Integer, primary_key=True)
-    tenant_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
-    first_name = db.Column(db.String(80), nullable=False)
-    last_name = db.Column(db.String(80), nullable=False)
-    document_id = db.Column(db.String(50), nullable=False)
-    date_of_birth = db.Column(db.Date, nullable=False)
-    phone = db.Column(db.String(50), nullable=False)
-    email = db.Column(db.String(120), nullable=True)
+    nombre = db.Column(db.String(80), nullable=False)
+    especie = db.Column(db.String(50), nullable=False) # Perro, Gato, etc.
+    raza = db.Column(db.String(80), nullable=True)
+    edad = db.Column(db.Integer, nullable=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
-    organization = db.relationship('Organization', back_populates='patients')
-    appointments = db.relationship('Appointment', back_populates='patient', cascade="all, delete-orphan")
+    # Relaciones
+    owner = db.relationship('User', back_populates='pets')
+    appointments = db.relationship('Appointment', back_populates='pet')
+    medical_history = db.relationship('MedicalRecord', back_populates='pet')
 
     def serialize(self):
         return {
             "id": self.id,
-            "tenant_id": self.tenant_id,
-            "first_name": self.first_name,
-            "last_name": self.last_name,
-            "document_id": self.document_id,
-            "date_of_birth": self.date_of_birth.isoformat() if self.date_of_birth else None,
-            "phone": self.phone,
-            "email": self.email
+            "nombre": self.nombre,
+            "especie": self.especie,
+            "owner_email": self.owner.email if self.owner else None
         }
 
 class Appointment(db.Model):
     __tablename__ = 'appointments'
-
     id = db.Column(db.Integer, primary_key=True)
-    tenant_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
-    patient_id = db.Column(db.Integer, db.ForeignKey('patients.id'), nullable=False)
-    doctor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     date_time = db.Column(db.DateTime, nullable=False)
-    status = db.Column(db.Enum(AppointmentStatus), default=AppointmentStatus.EN_ESPERA, nullable=False)
-
-    organization = db.relationship('Organization', back_populates='appointments')
-    patient = db.relationship('Patient', back_populates='appointments')
-    doctor = db.relationship('User', back_populates='appointments_as_doctor')
+    status = db.Column(db.Enum(AppointmentStatus), default=AppointmentStatus.PROGRAMADA)
+    tipo = db.Column(db.String(50), nullable=False) # 'Médica' o 'Barbería'
     
-    medical_record = db.relationship('MedicalRecord', back_populates='appointment', uselist=False, cascade="all, delete-orphan")
-    payment = db.relationship('Payment', back_populates='appointment', uselist=False, cascade="all, delete-orphan")
+    clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.id'), nullable=False)
+    pet_id = db.Column(db.Integer, db.ForeignKey('pets.id'), nullable=False)
+    doctor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True) # Opcional si es barbería
+    payment = db.relationship('Payment', back_populates='appointment', uselist=False)
 
-    def serialize(self):
-        return {
-            "id": self.id,
-            "tenant_id": self.tenant_id,
-            "patient_id": self.patient_id,
-            "doctor_id": self.doctor_id,
-            "date_time": self.date_time.isoformat() if self.date_time else None,
-            "status": self.status.value if self.status else None
-        }
+    # Relaciones
+    clinic = db.relationship('Clinic', back_populates='appointments')
+    pet = db.relationship('Pet', back_populates='appointments')
+    doctor = db.relationship('User', back_populates='appointments_as_doctor')
+    record = db.relationship('MedicalRecord', back_populates='appointment', uselist=False)
 
 class MedicalRecord(db.Model):
     __tablename__ = 'medical_records'
-
     id = db.Column(db.Integer, primary_key=True)
-    tenant_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
-    appointment_id = db.Column(db.Integer, db.ForeignKey('appointments.id'), unique=True, nullable=False)
+    fecha = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    motivo = db.Column(db.String(200), nullable=False)
+    diagnostico_tratamiento = db.Column(db.Text, nullable=False) # Texto libre para rapidez
+    
+    pet_id = db.Column(db.Integer, db.ForeignKey('pets.id'), nullable=False)
     doctor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    appointment_id = db.Column(db.Integer, db.ForeignKey('appointments.id'), nullable=True)
 
-    reason_for_visit = db.Column(db.Text, nullable=False)
-    blood_pressure = db.Column(db.String(20), nullable=True)
-    heart_rate = db.Column(db.Integer, nullable=True)
-    weight = db.Column(db.Float, nullable=True)
-    temperature = db.Column(db.Float, nullable=True)
-
-    clinical_findings = db.Column(db.Text, nullable=True)
-    treatment_plan = db.Column(db.Text, nullable=True)
-    is_locked = db.Column(db.Boolean, default=False, nullable=False)
-
-    organization = db.relationship('Organization', back_populates='medical_records')
-    appointment = db.relationship('Appointment', back_populates='medical_record')
-    doctor = db.relationship('User', back_populates='records_validated')
-
-    def serialize(self):
-        return {
-            "id": self.id,
-            "tenant_id": self.tenant_id,
-            "appointment_id": self.appointment_id,
-            "doctor_id": self.doctor_id,
-            "reason_for_visit": self.reason_for_visit,
-            "blood_pressure": self.blood_pressure,
-            "heart_rate": self.heart_rate,
-            "weight": self.weight,
-            "temperature": self.temperature,
-            "clinical_findings": self.clinical_findings,
-            "treatment_plan": self.treatment_plan,
-            "is_locked": self.is_locked
-        }
+    # Relaciones
+    pet = db.relationship('Pet', back_populates='medical_history')
+    doctor = db.relationship('User', back_populates='medical_records')
+    appointment = db.relationship('Appointment', back_populates='record')
 
 class Payment(db.Model):
     __tablename__ = 'payments'
 
     id = db.Column(db.Integer, primary_key=True)
-    tenant_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
+    clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.id'), nullable=False)
     appointment_id = db.Column(db.Integer, db.ForeignKey('appointments.id'), unique=True, nullable=False)
     cashier_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     payment_method = db.Column(db.Enum(PaymentMethod), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
-    organization = db.relationship('Organization', back_populates='payments')
+    clinic = db.relationship('Clinic', back_populates='payments')
     appointment = db.relationship('Appointment', back_populates='payment')
     cashier = db.relationship('User', back_populates='payments_processed')
 
     def serialize(self):
         return {
             "id": self.id,
-            "tenant_id": self.tenant_id,
+            "clinic_id": self.clinic_id,
             "appointment_id": self.appointment_id,
             "cashier_id": self.cashier_id,
             "amount": self.amount,

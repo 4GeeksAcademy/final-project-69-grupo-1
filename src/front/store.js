@@ -1,25 +1,25 @@
 import React from "react";
 
-// 1. Creamos el contexto aquí para que todos lo encuentren
+// Creamos el contexto para que todos los componentes lo encuentren
 export const Context = React.createContext(null);
 
 export const initialStore = () => {
   return {
     message: null,
 
-    // --- USUARIO CABLEADO (Lo que pidió el profe) ---
+    // --- USUARIO CABLEADO (Simulando la respuesta del backend)
     user: {
+      id: 1,
       email: "Mauriciocaldera10@gmail.com",
-      rol: "Admin",
+      full_name: "Mauricio Javier Caldera Morales",
+      role: "SUPER_ADMIN", // Usamos el rol exacto del RoleEnum de SQLAlchemy
+      clinic_id: null, // Null porque el Super Admin no pertenece a una sola clínica
     },
+
     token: "token-falso-de-prueba-123",
 
-    clinics: [], // Aquí aterrizarán los datos del fetch
-
-    todos: [
-      { id: 1, title: "Make the bed", background: null },
-      { id: 2, title: "Do my homework", background: null },
-    ],
+    // --- ESTADOS DE LA APLICACIÓN
+    clinics: [], // Aquí aterrizarán los datos del fetch de clínicas
   };
 };
 
@@ -29,6 +29,7 @@ export default function storeReducer(store, action = {}) {
       return { ...store, message: action.payload };
 
     case "set_clinics":
+      // Actualiza la lista global de clínicas
       return { ...store, clinics: action.payload };
 
     default:
