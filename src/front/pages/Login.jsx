@@ -18,7 +18,7 @@ export const Login = () => {
         <div className="container d-flex justify-content-center align-items-center" style={{ minHeight: "80vh" }}>
             <div className="card shadow-lg border-0 p-4" style={{ width: "100%", maxWidth: "400px", borderRadius: "15px" }}>
                 <div className="text-center mb-4">
-                    <h2 className="fw-bold text-primary">logo</h2>
+                    <h2 className="fw-bold text-primary">PetHealth & Spa</h2>
                     <p className="text-muted">Acceso seguro para personal autorizado</p>
                 </div>
                 <form onSubmit={handleLogin}>
