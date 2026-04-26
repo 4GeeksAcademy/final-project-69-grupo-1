@@ -11,6 +11,7 @@ from api.routes import api
 from api.admin import setup_admin
 from api.commands import setup_commands
 from flask_jwt_extended import JWTManager
+from flask_mailman import Mail
 # from models import Person
                                       
 
@@ -22,6 +23,15 @@ app.url_map.strict_slashes = False
 
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "super-secret-key-cambiame")
 jwt = JWTManager(app) 
+
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME') # Tu correo de Gmail
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD') # Tu "App Password" de Gmail
+app.config['MAIL_DEFAULT_SENDER'] = ('PetHealth & Spa Support', os.getenv('MAIL_USERNAME'))
+
+mail = Mail(app)
 
 # database condiguration
 db_url = os.getenv("DATABASE_URL")
