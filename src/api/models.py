@@ -1,5 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone
+from werkzeug.security import generate_password_hash, check_password_hash
 import enum
 
 db = SQLAlchemy()
@@ -67,6 +68,14 @@ class User(db.Model):
     appointments_as_doctor = db.relationship('Appointment', back_populates='doctor')
     medical_records = db.relationship('MedicalRecord', back_populates='doctor')
     payments_processed = db.relationship('Payment', back_populates='cashier')
+
+    #Método para encriptar al registrar o cambiar clave
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    #Método para validar en el login
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
 
     def serialize(self):
         return {
