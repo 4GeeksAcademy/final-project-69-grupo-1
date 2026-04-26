@@ -29,19 +29,29 @@ export const AdminClinics = () => {
     const [searchTerm, setSearchTerm] = useState("");
 
     const loadClinics = async () => {
+        if (!store.token) return; // Protección: Si no hay token, no intentar pedir datos
+
         try {
             const backendUrl = import.meta.env.VITE_BACKEND_URL;
-            const response = await fetch(backendUrl + "/api/clinics");
+            const response = await fetch(backendUrl + "/api/clinics", {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${store.token}`
+                }
+            });
             if (response.ok) {
                 const data = await response.json();
                 dispatch({ type: "set_clinics", payload: data });
+            } else if (response.status === 403) {
+                alert("No tienes permisos de Super Admin para ver esta sección.");
             }
         } catch (error) {
             console.error("Error trayendo clínicas:", error);
         }
     };
-
-    useEffect(() => { loadClinics(); }, []);
+    
+    useEffect(() => { loadClinics(); }, [store.token]);
 
     // EVENTOS DE FORMULARIO
     const handleChange = (e, isEdit = false) => {
@@ -60,7 +70,10 @@ export const AdminClinics = () => {
             const backendUrl = import.meta.env.VITE_BACKEND_URL;
             const response = await fetch(backendUrl + "/api/clinics", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${store.token}`
+                },
                 body: JSON.stringify(formData)
             });
 
@@ -69,7 +82,8 @@ export const AdminClinics = () => {
                 setShowForm(false);
                 loadClinics();
             } else {
-                alert("Error: Verifica que el RIF no esté repetido.");
+                const errorData = await response.json();
+                alert(`Error: ${errorData.message || errorData.error}`);
             }
         } catch (error) {
             console.error("Error:", error);
@@ -79,22 +93,21 @@ export const AdminClinics = () => {
     const executeToggle = async () => {
         try {
             const backendUrl = import.meta.env.VITE_BACKEND_URL;
-            const payload = {
-                is_active: !selectedClinic.is_active,
-                suspension_reason: selectedClinic.is_active ? suspensionReason : null
-            };
-
-            const response = await fetch(backendUrl + `/api/clinics/${selectedClinic.id}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
+            const response = await fetch(backendUrl + `/api/clinics/${selectedClinic.id}/status`, {
+                method: "PATCH",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${store.token}` 
+                },
+                body: JSON.stringify({ reason: selectedClinic.is_active ? suspensionReason : null })
             });
 
             if (response.ok) {
+                const data = await response.json();
+                dispatch({ type: "update_clinic", payload: data.clinic });
                 setShowStatusModal(false);
                 setSelectedClinic(null);
                 setSuspensionReason("Falta de pago");
-                loadClinics();
             }
         } catch (error) {
             console.error("Error:", error);
@@ -107,14 +120,18 @@ export const AdminClinics = () => {
             const backendUrl = import.meta.env.VITE_BACKEND_URL;
             const response = await fetch(backendUrl + `/api/clinics/${selectedClinic.id}`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${store.token}`
+                },
                 body: JSON.stringify(editFormData)
             });
 
             if (response.ok) {
+                const data = await response.json();
+                dispatch({ type: "update_clinic", payload: data.clinic });
                 setShowEditModal(false);
                 setSelectedClinic(null);
-                loadClinics();
             } else {
                 alert("Error al actualizar la clínica.");
             }
@@ -128,7 +145,10 @@ export const AdminClinics = () => {
             const backendUrl = import.meta.env.VITE_BACKEND_URL;
             const response = await fetch(backendUrl + `/api/clinics/${selectedClinic.id}`, {
                 method: "DELETE",
-                headers: { "Content-Type": "application/json" }
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${store.token}`
+                }
             });
 
             if (response.ok) {
@@ -151,7 +171,10 @@ export const AdminClinics = () => {
             const backendUrl = import.meta.env.VITE_BACKEND_URL;
             const response = await fetch(backendUrl + `/api/users/${userId}/ban`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${store.token}`
+                },
                 body: JSON.stringify({ is_active: newStatus })
             });
 
