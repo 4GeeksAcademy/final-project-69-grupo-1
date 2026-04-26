@@ -2,7 +2,10 @@ import {
   createBrowserRouter,
   createRoutesFromElements,
   Route,
-} from "react-router-dom";
+  Navigate
+} 
+from "react-router-dom";
+import { useGlobalReducer } from "./hooks/useGlobalReducer";
 import { Layout } from "./pages/Layout";
 import { Home } from "./pages/Home";
 import { Single } from "./pages/Single";
@@ -11,18 +14,44 @@ import React from "react";
 import { AdminClinics } from "./pages/AdminClinics";
 import { Invoice } from "./pages/Invoice";
 import { Login } from "./pages/Login"; // 1. IMPORTAMOS EL LOGIN
+import { RegistrationLanding } from "./pages/RegistrationLanding";
+import { ForcePasswordChange } from "./pages/ForcePasswordChange";
+import { SuperAdminRequests } from "./pages/SuperAdminRequests";
+
+const PrivateGuard = ({ children }) => {
+    const { store } = useGlobalReducer();
+    
+    if (!store.token) return <Navigate to="/login" />;
+
+    if (store.user?.must_change_password) {
+        return <Navigate to="/change-password" />;
+    }
+
+    return children;
+};
 
 export const router = createBrowserRouter(
   createRoutesFromElements(
     <Route path="/" element={<Layout />} errorElement={<h1>Not found!</h1>} >
 
+      {/* RUTAS PÚBLICAS */}
       <Route path="/" element={<Home />} />
-
-      {/* 2. NUEVA RUTA PARA EL LOGIN */}
       <Route path="/login" element={<Login />} />
-
+      <Route path="/registro-sede" element={<RegistrationLanding />} />
       <Route path="/invoice" element={<Invoice />} />
-      <Route path="admin/clinicas" element={<AdminClinics />} />
+
+      {/* RUTA DE SEGURIDAD (Obligatoria para primer login) */}
+      <Route path="/change-password" element={
+        <div className="container py-5 text-center">
+          <h1>Cambio de Contraseña</h1>
+          <p>Por seguridad, debes actualizar tu clave temporal.</p>
+          {<ForcePasswordChange />}
+        </div>
+      } />
+
+      {/* RUTAS PROTEGIDAS (Requieren login y clave definitiva) */}
+      <Route path="admin/clinicas" element={<PrivateGuard><AdminClinics /></PrivateGuard>} />
+      <Route path="/admin/solicitudes" element={<PrivateGuard> <SuperAdminRequests /> </PrivateGuard>} />
 
       <Route path="/item2" element={<div className="container py-5 text-center"><h1>Página Item 2</h1><p>En construcción...</p></div>} />
       <Route path="/item3" element={<div className="container py-5 text-center"><h1>Página Item 3</h1><p>En construcción...</p></div>} />

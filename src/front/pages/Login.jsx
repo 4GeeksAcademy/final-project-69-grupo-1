@@ -1,27 +1,24 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGlobalReducer } from "../hooks/useGlobalReducer";
+import toast from "react-hot-toast"; // Importamos toast para notificaciones
 
 export const Login = () => {
-    const { store, dispatch } = useGlobalReducer();
+    const { dispatch } = useGlobalReducer();
     const navigate = useNavigate();
     
-    // ESTADO EXISTENTE: Manejo local del formulario
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    
-    // A INCLUIR: Estado para feedback al usuario
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(false);
 
-    // MODIFICACIÓN: Lógica de envío conectada al Backend
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError(null);
         setLoading(true);
 
         try {
-            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}api/login`, {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password })
@@ -30,56 +27,76 @@ export const Login = () => {
             const data = await response.json();
 
             if (response.ok) {
-                // MODIFICACIÓN: Se guarda en el store global y localStorage (vía reducer)
+                // 1. Guardar en el store global
                 dispatch({ 
                     type: "login", 
                     payload: { token: data.token, user: data.user } 
                 });
                 
-                // ÉPICA 0: Redirección inteligente según el rol si fuera necesario
-                navigate("/admin/clinicas"); 
+                toast.success(`¡Bienvenido, ${data.user.full_name}!`);
+
+                // --- 2. REDIRECCIÓN INTELIGENTE ---
+                
+                // Caso A: Es Super Admin -> Va directo a ver las solicitudes de clínicas
+                if (data.user.role === "SUPER_ADMIN") {
+                    navigate("/admin/solicitudes");
+                } 
+                // Caso B: Debe cambiar la contraseña (Primer login de un veterinario aprobado)
+                else if (data.user.must_change_password) {
+                    navigate("/change-password");
+                } 
+                // Caso C: Usuario normal (Veterinario con clave definitiva) -> Va a sus clínicas
+                else {
+                    navigate("/admin/clinicas");
+                }
+
             } else {
                 setError(data.message || "Credenciales incorrectas");
+                toast.error(data.message || "Credenciales incorrectas");
             }
         } catch (err) {
             setError("Error de conexión con el servidor");
+            toast.error("Error de conexión");
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="container mt-5">
+        <div className="container mt-5 py-5">
             <div className="row justify-content-center">
-                <div className="col-md-4">
-                    <div className="card shadow border-0">
-                        <div className="card-body p-4">
-                            <h2 className="text-center mb-4">PetHealth Login</h2>
+                <div className="col-md-5 col-lg-4">
+                    <div className="card shadow-lg border-0 rounded-4">
+                        <div className="card-body p-5">
+                            <div className="text-center mb-4">
+                                <h2 className="fw-bold text-primary">PetHealth</h2>
+                                <p className="text-muted small">Panel de Gestión Profesional</p>
+                            </div>
                             
                             {error && (
-                                <div className="alert alert-danger p-2 text-center" role="alert">
-                                    {error}
+                                <div className="alert alert-danger py-2 text-center small" role="alert">
+                                    <i className="fas fa-exclamation-triangle me-2"></i>{error}
                                 </div>
                             )}
 
                             <form onSubmit={handleSubmit}>
                                 <div className="mb-3">
-                                    <label className="form-label text-secondary">Email</label>
+                                    <label className="form-label small fw-bold">Correo Electrónico</label>
                                     <input
                                         type="email"
-                                        className="form-control bg-light"
-                                        placeholder="correo@ejemplo.com"
+                                        className="form-control form-control-lg bg-light border-0"
+                                        placeholder="admin@pethealth.com"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         required
                                     />
                                 </div>
                                 <div className="mb-4">
-                                    <label className="form-label text-secondary">Contraseña</label>
+                                    <label className="form-label small fw-bold">Contraseña</label>
                                     <input
                                         type="password"
-                                        className="form-control bg-light"
-                                        placeholder="********"
+                                        className="form-control form-control-lg bg-light border-0"
+                                        placeholder="••••••••"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         required
@@ -87,10 +104,12 @@ export const Login = () => {
                                 </div>
                                 <button 
                                     type="submit" 
-                                    className="btn btn-primary w-100 py-2"
+                                    className="btn btn-primary btn-lg w-100 fw-bold shadow-sm"
                                     disabled={loading}
                                 >
-                                    {loading ? "Cargando..." : "Entrar"}
+                                    {loading ? (
+                                        <span><span className="spinner-border spinner-border-sm me-2"></span>Entrando...</span>
+                                    ) : "Iniciar Sesión"}
                                 </button>
                             </form>
                         </div>

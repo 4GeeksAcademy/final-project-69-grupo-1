@@ -9,19 +9,74 @@ db = SQLAlchemy()
 class RoleEnum(enum.Enum):
     SUPER_ADMIN = 'SUPER_ADMIN'
     CLINIC_ADMIN = 'CLINIC_ADMIN'
+    INDEPENDENT_VET = 'INDEPENDENT_VET'
     DOCTOR = 'DOCTOR'
+    RECEPTIONIST = 'RECEPTIONIST'
     CLIENTE = 'CLIENTE'
 
 class AppointmentStatus(enum.Enum):
     PROGRAMADA = 'PROGRAMADA'
+    EN_ATENCION = 'EN_ATENCION'
     COMPLETADA = 'COMPLETADA'
     CANCELADA = 'CANCELADA'
+
+class RequestStatus(enum.Enum):       
+    PENDING = 'PENDING'
+    APPROVED = 'APPROVED'
+    REJECTED = 'REJECTED'
 
 class PaymentMethod(enum.Enum):
     EFECTIVO = 'EFECTIVO'
     PUNTO_DE_VENTA = 'PUNTO_DE_VENTA'
     PAGO_MOVIL = 'PAGO_MOVIL'
     ZELLE = 'ZELLE'
+
+class ClinicRequest(db.Model):
+    __tablename__ = 'clinic_requests'
+    id = db.Column(db.Integer, primary_key=True)
+    tipo_solicitud = db.Column(db.String(20), nullable=False) # 'EMPRESA' o 'INDEPENDIENTE'
+    
+    # Datos de la sede
+    nombre_clinica = db.Column(db.String(120), nullable=False)
+    rif_empresa = db.Column(db.String(50), nullable=True) # Solo para Empresa
+    cedula_identidad = db.Column(db.String(50), nullable=False) # Para Indep o Admin de Empresa
+    direccion = db.Column(db.String(255), nullable=False)
+    telefono = db.Column(db.String(50), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    
+    # Datos del Admin (solo si es Empresa)
+    nombre_admin = db.Column(db.String(120), nullable=True)
+
+    # Documentos (URLs de Cloudinary/S3)
+    url_cedula = db.Column(db.String(255), nullable=False)
+    url_rif = db.Column(db.String(255), nullable=True)
+    url_registro_mercantil = db.Column(db.String(255), nullable=True)
+    url_permiso_sanitario = db.Column(db.String(255), nullable=True)
+    url_titulo_profesional = db.Column(db.String(255), nullable=True)
+
+    status = db.Column(db.Enum(RequestStatus), default=RequestStatus.PENDING)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "tipo": self.tipo_solicitud,
+            "clinica": self.nombre_clinica,
+            "rif_empresa" : self.rif_empresa,
+            "cedula_admin" : self.cedula_identidad,
+            "email": self.email,
+            "nombre_admin": self.nombre_admin,
+            "direccion" : self.direccion,
+            "telefono": self.telefono,
+            "status": self.status.value if self.status else "PENDING",
+            "docs": {
+                "cedula": self.url_cedula,
+                "rif": self.url_rif,
+                "mercantil": self.url_registro_mercantil,
+                "sanitario": self.url_permiso_sanitario,
+                "titulo": self.url_titulo_profesional
+             }
+        }
 
 class Clinic(db.Model):
     __tablename__ = 'clinics'
@@ -34,6 +89,7 @@ class Clinic(db.Model):
     is_active = db.Column(db.Boolean, default=True) 
     suspension_reason = db.Column(db.String(255), nullable=True) # Motivo de suspension que hablamos antes
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    
     
     # Relaciones con borrado en cascada para poder eliminar clínicas
     users = db.relationship('User', back_populates='clinic', cascade="all, delete")
@@ -61,7 +117,8 @@ class User(db.Model):
     role = db.Column(db.Enum(RoleEnum), default=RoleEnum.CLIENTE, nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False) # Nuevo: para vetar doctores o clientes
     clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.id'), nullable=True) 
-
+    must_change_password = db.Column(db.Boolean(), nullable=False, default=False)
+    
     # Relaciones
     clinic = db.relationship('Clinic', back_populates='users')
     pets = db.relationship('Pet', back_populates='owner', cascade="all, delete")
@@ -69,11 +126,15 @@ class User(db.Model):
     medical_records = db.relationship('MedicalRecord', back_populates='doctor')
     payments_processed = db.relationship('Payment', back_populates='cashier')
 
-    #Método para encriptar al registrar o cambiar clave
-    def set_password(self, password):
+    @property
+    def password(self):
+        raise AttributeError('La contraseña no es un atributo legible')
+    
+    @password.setter
+    def password(self, password):
+        # Cada vez que hagas user.password = "nueva_clave", se ejecutará esto:
         self.password_hash = generate_password_hash(password)
 
-    #Método para validar en el login
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 

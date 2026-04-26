@@ -8,6 +8,7 @@ export const initialStore = () => {
     token: localStorage.getItem("token") || null,
     user: JSON.parse(localStorage.getItem("user")) || null,
     clinics: [],
+    clinicRequests: [],
   };
 };
 
@@ -39,14 +40,29 @@ export default function storeReducer(store, action) {
         clinics: action.payload 
       };
 
-      case 'update_clinic':
+    case 'update_clinic':
       return {
         ...store,
         clinics: store.clinics.map(clinic => 
-          clinic.id === action.payload.id ? action.payload : clinic
-        )
+          clinic.id === action.payload.id ? action.payload : clinic)
       };
       
+    case 'set_clinic_requests':
+      return { ...store, clinicRequests: action.payload
+      };
+
+    case 'remove_clinic_request':
+      return {
+        ...store,
+        clinicRequests: store.clinicRequests.filter(req => req.id !== action.payload)
+      };
+
+    case 'update_user_locally':
+      const updatedUser = { ...store.user, ...action.payload };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      return { ...store, user: updatedUser 
+      };
+
     default:
       return store;
   }

@@ -23,8 +23,10 @@ export const Home = () => {
             <div className="container mb-5 mt-4">
                 <div className="row justify-content-center gap-3">
                     <div className="col-12 col-md-3">
-                        <button className="btn btn-warning w-100 fw-bold py-3 rounded-pill shadow border-0">
+                        <button className="btn btn-warning w-100 fw-bold py-3 rounded-pill shadow border-0"
+                        onClick={() => navigate("/registro-sede")}>
                             <i className="fa-solid fa-hospital me-2"></i> REGISTRAR CLÍNICA
+                            
                         </button>
                     </div>
                     <div className="col-12 col-md-3">
