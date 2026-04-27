@@ -3,8 +3,7 @@ import {
   createRoutesFromElements,
   Route,
   Navigate
-} 
-from "react-router-dom";
+} from "react-router-dom";
 import { useGlobalReducer } from "./hooks/useGlobalReducer";
 import { Layout } from "./pages/Layout";
 import { Home } from "./pages/Home";
@@ -13,25 +12,27 @@ import { Demo } from "./pages/Demo";
 import React from "react";
 import { AdminClinics } from "./pages/AdminClinics";
 import { Invoice } from "./pages/Invoice";
-import { Login } from "./pages/Login"; // 1. IMPORTAMOS EL LOGIN
+import { Login } from "./pages/Login";
 import { RegistrationLanding } from "./pages/RegistrationLanding";
 import { ForcePasswordChange } from "./pages/ForcePasswordChange";
 import { SuperAdminRequests } from "./pages/SuperAdminRequests";
+import { MyPets } from "./pages/MyPets"; 
+import { BookingView } from "./pages/BookingView"; // <--- AGREGADO
 
-const PrivateGuard = ({ children, allowedRoles}) => {
-    const { store } = useGlobalReducer();
-    
-    if (!store.token) return <Navigate to="/login" />;
+const PrivateGuard = ({ children, allowedRoles }) => {
+  const { store } = useGlobalReducer();
 
-    if (store.user?.must_change_password) {
-        return <Navigate to="/change-password" />;
-    }
+  if (!store.token) return <Navigate to="/login" />;
 
-    if (allowedRoles && !allowedRoles.includes(store.user?.role)) {
-        console.warn(`Acceso denegado: Rol ${store.user?.role} no autorizado.`);
-        return <Navigate to="/" />;
-    }
-    return children;
+  if (store.user?.must_change_password) {
+    return <Navigate to="/change-password" />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(store.user?.role)) {
+    console.warn(`Acceso denegado: Rol ${store.user?.role} no autorizado.`);
+    return <Navigate to="/" />;
+  }
+  return children;
 };
 
 export const router = createBrowserRouter(
@@ -43,17 +44,23 @@ export const router = createBrowserRouter(
       <Route path="/login" element={<Login />} />
       <Route path="/registro-sede" element={<RegistrationLanding />} />
       <Route path="/invoice" element={<Invoice />} />
+      
+      {/* RUTA DE MIS MASCOTAS (PÚBLICA para desarrollo) */}
+      <Route path="/mis-mascotas" element={<MyPets />} />
+
+      {/* RUTA DE AGENDAR CITA (PÚBLICA para desarrollo) */}
+      <Route path="/agendar-cita" element={<BookingView />} /> {/* <--- AGREGADO */}
 
       {/* RUTA DE SEGURIDAD (Obligatoria para primer login) */}
       <Route path="/change-password" element={
         <div className="container py-5 text-center">
           <h1>Cambio de Contraseña</h1>
           <p>Por seguridad, debes actualizar tu clave temporal.</p>
-          {<ForcePasswordChange />}
+          <ForcePasswordChange />
         </div>
       } />
 
-      {/* RUTAS PROTEGIDAS (Requieren login y clave definitiva) */}
+      {/* RUTAS PROTEGIDAS */}
       <Route path="admin/clinicas" element={<PrivateGuard allowedRoles={["SUPER_ADMIN"]}><AdminClinics /></PrivateGuard>} />
       <Route path="/admin/solicitudes" element={<PrivateGuard allowedRoles={["SUPER_ADMIN"]}> <SuperAdminRequests /> </PrivateGuard>} />
 

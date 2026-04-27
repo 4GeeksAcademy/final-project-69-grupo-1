@@ -21,7 +21,7 @@ def setup_commands(app):
                     role=RoleEnum.SUPER_ADMIN,
                     is_active=True
                 )
-                new_user.set_password(member["password"])
+                new_user.password(member["password"])
                 
                 db.session.add(new_user)
                 print(f"✅ Usuario {member['email']} creado exitosamente.")

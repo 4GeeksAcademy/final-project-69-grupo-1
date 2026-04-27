@@ -155,7 +155,7 @@ class Pet(db.Model):
     especie = db.Column(db.String(50), nullable=False) 
     raza = db.Column(db.String(80), nullable=True)
     edad = db.Column(db.Integer, nullable=True)
-    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
     # Relaciones
     owner = db.relationship('User', back_populates='pets')
