@@ -9,6 +9,7 @@ export const initialStore = () => {
     user: JSON.parse(localStorage.getItem("user")) || null,
     clinics: [],
     clinicRequests: [],
+    staff: [],
   };
 };
 
@@ -33,6 +34,20 @@ export default function storeReducer(store, action) {
         token: null, 
         user: null 
       };
+
+    case 'set_staff':
+      return { 
+        ...store, 
+        staff: action.payload 
+      };
+
+    case 'update_staff_member_locally':
+      const updatedStaff = store.staff.map(member => 
+        member.id === action.payload.id ? { ...member, is_active: action.payload.is_active } : member);
+      return {
+        ...store,
+        staff: updatedStaff
+      };  
 
     case 'set_clinics':
       return { 

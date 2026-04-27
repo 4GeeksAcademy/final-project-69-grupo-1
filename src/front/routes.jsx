@@ -18,7 +18,7 @@ import { RegistrationLanding } from "./pages/RegistrationLanding";
 import { ForcePasswordChange } from "./pages/ForcePasswordChange";
 import { SuperAdminRequests } from "./pages/SuperAdminRequests";
 
-const PrivateGuard = ({ children }) => {
+const PrivateGuard = ({ children, allowedRoles}) => {
     const { store } = useGlobalReducer();
     
     if (!store.token) return <Navigate to="/login" />;
@@ -27,6 +27,10 @@ const PrivateGuard = ({ children }) => {
         return <Navigate to="/change-password" />;
     }
 
+    if (allowedRoles && !allowedRoles.includes(store.user?.role)) {
+        console.warn(`Acceso denegado: Rol ${store.user?.role} no autorizado.`);
+        return <Navigate to="/" />;
+    }
     return children;
 };
 
@@ -50,8 +54,8 @@ export const router = createBrowserRouter(
       } />
 
       {/* RUTAS PROTEGIDAS (Requieren login y clave definitiva) */}
-      <Route path="admin/clinicas" element={<PrivateGuard><AdminClinics /></PrivateGuard>} />
-      <Route path="/admin/solicitudes" element={<PrivateGuard> <SuperAdminRequests /> </PrivateGuard>} />
+      <Route path="admin/clinicas" element={<PrivateGuard allowedRoles={["SUPER_ADMIN"]}><AdminClinics /></PrivateGuard>} />
+      <Route path="/admin/solicitudes" element={<PrivateGuard allowedRoles={["SUPER_ADMIN"]}> <SuperAdminRequests /> </PrivateGuard>} />
 
       <Route path="/item2" element={<div className="container py-5 text-center"><h1>Página Item 2</h1><p>En construcción...</p></div>} />
       <Route path="/item3" element={<div className="container py-5 text-center"><h1>Página Item 3</h1><p>En construcción...</p></div>} />
