@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom"; // Importamos Link
 import { useGlobalReducer } from "../hooks/useGlobalReducer";
-import toast from "react-hot-toast"; // Importamos toast para notificaciones
+import toast from "react-hot-toast"; 
 
 export const Login = () => {
     const { dispatch } = useGlobalReducer();
@@ -27,7 +27,6 @@ export const Login = () => {
             const data = await response.json();
 
             if (response.ok) {
-                // 1. Guardar en el store global
                 dispatch({ 
                     type: "login", 
                     payload: { token: data.token, user: data.user } 
@@ -35,17 +34,12 @@ export const Login = () => {
                 
                 toast.success(`¡Bienvenido, ${data.user.full_name}!`);
 
-                // --- 2. REDIRECCIÓN INTELIGENTE ---
-                
-                // Caso A: Es Super Admin -> Va directo a ver las solicitudes de clínicas
                 if (data.user.role === "SUPER_ADMIN") {
                     navigate("/admin/solicitudes");
                 } 
-                // Caso B: Debe cambiar la contraseña (Primer login de un veterinario aprobado)
                 else if (data.user.must_change_password) {
                     navigate("/change-password");
                 } 
-                // Caso C: Usuario normal (Veterinario con clave definitiva) -> Va a sus clínicas
                 else {
                     navigate("/admin/clinicas");
                 }
@@ -112,6 +106,16 @@ export const Login = () => {
                                     ) : "Iniciar Sesión"}
                                 </button>
                             </form>
+
+                            {/* --- SECCIÓN AGREGADA: ENLACE A REGISTRO --- */}
+                            <div className="text-center mt-4">
+                                <p className="text-muted small mb-0">¿Eres un profesional médico?</p>
+                                <Link to="/signup" className="text-primary fw-bold text-decoration-none small">
+                                    Registra tu sede aquí
+                                </Link>
+                            </div>
+                            {/* ------------------------------------------ */}
+                            
                         </div>
                     </div>
                 </div>
