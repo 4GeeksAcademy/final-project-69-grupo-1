@@ -1,4 +1,7 @@
+from functools import wraps
+from flask_jwt_extended import get_jwt, verify_jwt_in_request
 from flask import jsonify, url_for
+from api.models import RoleEnum
 
 class APIException(Exception):
     status_code = 400
@@ -19,6 +22,25 @@ def has_no_empty_params(rule):
     defaults = rule.defaults if rule.defaults is not None else ()
     arguments = rule.arguments if rule.arguments is not None else ()
     return len(defaults) >= len(arguments)
+
+def roles_required(*roles):
+    def wrapper(fn):
+        @wraps(fn)
+        def decorator(*args, **kwargs):
+            verify_jwt_in_request()
+            claims = get_jwt()
+            user_role = claims.get("role")
+
+            allowed_roles_values = [r.value if isinstance(r, RoleEnum) else r for r in roles]
+
+            if user_role not in allowed_roles_values:
+                return jsonify({
+                    "msg": f"Acceso denegado. Se requiere uno de estos roles: {allowed_roles_values}"
+                }), 403
+            
+            return fn(*args, **kwargs)
+        return decorator
+    return wrapper
 
 def generate_sitemap(app):
     links = ['/admin/']

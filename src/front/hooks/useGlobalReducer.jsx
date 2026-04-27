@@ -34,7 +34,7 @@ export function StoreProvider({ children }) {
                 const resp = await fetch(import.meta.env.VITE_BACKEND_URL + "/api/submit-registration", {
                     method: "POST",
                     // IMPORTANTE: No ponemos Headers de Content-Type cuando enviamos FormData con archivos
-                    body: formData 
+                    body: formData
                 });
                 return resp.ok;
             } catch (error) {
@@ -80,13 +80,13 @@ export function StoreProvider({ children }) {
             try {
                 const resp = await fetch(import.meta.env.VITE_BACKEND_URL + `/api/admin/reject-request/${requestId}`, {
                     method: "POST",
-                    headers: { 
+                    headers: {
                         "Content-Type": "application/json",
                         "Authorization": "Bearer " + (store.token || localStorage.getItem("token"))
                     },
                     body: JSON.stringify({ observaciones: observaciones })
-                 });
-        
+                });
+
                 if (resp.ok) {
                     // Eliminamos la solicitud de la lista visual
                     dispatch({ type: "remove_clinic_request", payload: requestId });
@@ -103,9 +103,9 @@ export function StoreProvider({ children }) {
             try {
                 const resp = await fetch(import.meta.env.VITE_BACKEND_URL + "/api/update-password", {
                     method: "PATCH",
-                    headers: { 
+                    headers: {
                         "Content-Type": "application/json",
-                        "Authorization": "Bearer " + store.token 
+                        "Authorization": "Bearer " + store.token
                     },
                     body: JSON.stringify({ new_password: newPassword })
                 });
@@ -115,6 +115,46 @@ export function StoreProvider({ children }) {
                 }
             } catch (error) {
                 console.error("Error actualizando contraseña:", error);
+            }
+            return false;
+        },
+
+        getStaff: async (clinicId) => {
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clinics/${clinicId}/staff`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + store.token
+                    }
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    dispatch({ type: "set_staff", payload: data });
+                    return true;
+                }
+            } catch (error) {
+                console.error("Error al obtener personal:", error);
+            }
+            return false;
+        },
+
+        updateStaffStatus: async (userId, isActive) => {
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/${userId}/status`, {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + store.token
+                    },
+                    body: JSON.stringify({ is_active: isActive })
+                });
+                if (resp.ok) {
+                    dispatch({ type: "update_staff_member_locally", payload: { id: userId, is_active: isActive } });
+                    return true;
+                }
+            } catch (error) {
+                console.error("Error al cambiar estado del usuario:", error);
             }
             return false;
         },

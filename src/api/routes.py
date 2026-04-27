@@ -8,7 +8,7 @@ import cloudinary
 import cloudinary.uploader
 from flask import Flask, request, jsonify, url_for, Blueprint
 from api.models import db, User, Clinic, Appointment, Pet, MedicalRecord, ClinicRequest, RoleEnum, RequestStatus
-from api.utils import generate_sitemap, APIException
+from api.utils import generate_sitemap, APIException, roles_required
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, get_jwt
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
@@ -180,6 +180,7 @@ def submit_registration():
 
 @api.route('/admin/requests', methods=['GET'])
 @jwt_required()
+@roles_required(RoleEnum.SUPER_ADMIN)
 def get_all_requests():
     """ SuperAdmin: Ver todas las solicitudes pendientes """
     claims = get_jwt()
@@ -191,6 +192,7 @@ def get_all_requests():
 
 @api.route('/admin/approve-request/<int:request_id>', methods=['POST'])
 @jwt_required()
+@roles_required(RoleEnum.SUPER_ADMIN)
 def approve_request(request_id):
     """ SuperAdmin: Aprueba una solicitud y crea las entidades reales """
     claims = get_jwt()
@@ -272,6 +274,7 @@ def approve_request(request_id):
 
 @api.route('/admin/reject-request/<int:request_id>', methods=['POST'])
 @jwt_required()
+@roles_required(RoleEnum.SUPER_ADMIN)
 def reject_request(request_id):
     """ SuperAdmin: Rechaza una solicitud y envía feedback al usuario """
     claims = get_jwt()
@@ -329,6 +332,7 @@ def reject_request(request_id):
 ## COMIENZO DE LOS ENDPOINTS PARA CLÍNICAS
 @api.route('/clinics', methods=['GET'])
 @jwt_required()
+@roles_required(RoleEnum.SUPER_ADMIN)
 def handle_clinics():
     claims = get_jwt()
     if claims.get("role") != RoleEnum.SUPER_ADMIN.value:
@@ -339,6 +343,7 @@ def handle_clinics():
     
 @api.route('/clinics/<int:clinic_id>', methods=['PUT', 'DELETE'])
 @jwt_required()
+@roles_required(RoleEnum.SUPER_ADMIN)
 def update_or_delete_clinic(clinic_id):
     claims = get_jwt()
     if claims.get("role") != RoleEnum.SUPER_ADMIN.value:
