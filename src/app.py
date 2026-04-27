@@ -5,6 +5,7 @@ import os
 from flask import Flask, request, jsonify, url_for, send_from_directory
 from flask_migrate import Migrate
 from flask_swagger import swagger
+from flask_cors import CORS # <--- AGREGADO: Importar CORS
 from api.utils import APIException, generate_sitemap
 from api.models import db
 from api.routes import api
@@ -12,14 +13,17 @@ from api.admin import setup_admin
 from api.commands import setup_commands
 from flask_jwt_extended import JWTManager
 from flask_mailman import Mail
-# from models import Person
-                                      
 
 ENV = "development" if os.getenv("FLASK_DEBUG") == "1" else "production"
 static_file_dir = os.path.join(os.path.dirname(
     os.path.realpath(__file__)), '../dist/')
+
 app = Flask(__name__)
 app.url_map.strict_slashes = False
+
+# Inicializar CORS para permitir que el Front-end se comunique con el Back-end
+# Cambia el CORS(app) simple por este:
+CORS(app, resources={r"/api/*": {"origins": "*"}}) # <--- AGREGADO: Inicializar CORS
 
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "super-secret-key-cambiame")
 jwt = JWTManager(app) 
@@ -27,13 +31,13 @@ jwt = JWTManager(app)
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME') # Tu correo de Gmail
-app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD') # Tu "App Password" de Gmail
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = ('PetHealth & Spa Support', os.getenv('MAIL_USERNAME'))
 
 mail = Mail(app)
 
-# database condiguration
+# database configuration
 db_url = os.getenv("DATABASE_URL")
 if db_url is not None:
     app.config['SQLALCHEMY_DATABASE_URI'] = db_url.replace(
@@ -48,22 +52,18 @@ db.init_app(app)
 # add the admin
 setup_admin(app)
 
-# add the admin
+# add the commands
 setup_commands(app)
 
 # Add all endpoints form the API with a "api" prefix
 app.register_blueprint(api, url_prefix='/api')
 
 # Handle/serialize errors like a JSON object
-
-
 @app.errorhandler(APIException)
 def handle_invalid_usage(error):
     return jsonify(error.to_dict()), error.status_code
 
 # generate sitemap with all your endpoints
-
-
 @app.route('/')
 def sitemap():
     if ENV == "development":
@@ -78,7 +78,6 @@ def serve_any_other_file(path):
     response = send_from_directory(static_file_dir, path)
     response.cache_control.max_age = 0  # avoid cache memory
     return response
-
 
 # this only runs if `$ python src/main.py` is executed
 if __name__ == '__main__':

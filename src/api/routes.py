@@ -6,8 +6,9 @@ import string
 import os
 import cloudinary
 import cloudinary.uploader
+from datetime import datetime
 from flask import Flask, request, jsonify, url_for, Blueprint
-from api.models import db, User, Clinic, Appointment, Pet, MedicalRecord, ClinicRequest, RoleEnum, RequestStatus
+from api.models import db, User, Clinic, Appointment, Pet, MedicalRecord, ClinicRequest, RoleEnum, RequestStatus, AppointmentStatus
 from api.utils import generate_sitemap, APIException, roles_required
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, get_jwt
 from flask_cors import CORS
@@ -19,25 +20,27 @@ api = Blueprint('api', __name__)
 # Allow CORS requests to this API
 CORS(api)
 
-cloudinary.config( 
-  cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME"), 
-  api_key = os.getenv("CLOUDINARY_API_KEY"), 
-  api_secret = os.getenv("CLOUDINARY_API_SECRET"),
-  secure = True
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    secure=True
 )
+
 
 def generate_temp_password(length=12):
     alphabet = string.ascii_letters + string.digits + "!@#$%"
     return ''.join(secrets.choice(alphabet) for i in range(length))
+
 
 @api.route('/login', methods=['POST'])
 def login():
     data = request.json
     email = data.get("email")
     password = data.get("password")
-    
+
     user = User.query.filter_by(email=email).first()
-    
+
     if user and user.check_password(password):
         if user.clinic_id:
             clinic = Clinic.query.get(user.clinic_id)
@@ -46,16 +49,17 @@ def login():
                     "message": f"Acceso Denegado: La sede '{clinic.nombre}' ha sido suspendida.",
                     "reason": clinic.suspension_reason
                 }), 403
-            
+
         access_token = create_access_token(
-            identity=str(user.id), 
+            identity=str(user.id),
             additional_claims={
-                "role": user.role.value, 
+                "role": user.role.value,
                 "clinic_id": user.clinic_id,
                 "must_change_password": user.must_change_password
-                })
+            })
         return jsonify({"token": access_token, "user": user.serialize()}), 200
     return jsonify({"message": "Email o contraseña incorrectos"}), 401
+
 
 @api.route('/me', methods=['GET'])
 @jwt_required()
@@ -64,6 +68,7 @@ def get_profile():
     user = User.query.get(current_user_id)
     return jsonify(user.serialize()), 200
 
+
 @api.route('/update-password', methods=['PATCH'])
 @jwt_required()
 def update_password():
@@ -71,28 +76,29 @@ def update_password():
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
     body = request.json
-    
+
     new_password = body.get("new_password")
     if not new_password or len(new_password) < 6:
         return jsonify({"error": "La contraseña debe tener al menos 6 caracteres"}), 400
-    
+
     user.set_password(new_password)
-    user.must_change_password = False 
+    user.must_change_password = False
     db.session.commit()
-    
+
     return jsonify({"message": "Contraseña actualizada exitosamente"}), 200
 
 # --- ENDPOINTS DE MESA DE ENTRADA (CLINIC REQUESTS) ---
+
 
 @api.route('/submit-registration', methods=['POST'])
 def submit_registration():
     # 1. Capturamos los datos correctamente
     data = request.form  # Para textos
-    files = request.files # Para archivos
-    
+    files = request.files  # Para archivos
+
     # Obtenemos el email de forma segura
     email = data.get('email')
-    
+
     if not email:
         return jsonify({"error": "El campo email es obligatorio"}), 400
 
@@ -102,7 +108,7 @@ def submit_registration():
 
     if user_exists or request_exists:
         return jsonify({"error": "El correo ya está registrado o en proceso de revisión"}), 400
-    
+
     # 3. Función interna para subir a Cloudinary
     def upload_file(file_key):
         if file_key not in files:
@@ -110,7 +116,7 @@ def submit_registration():
         try:
             # El servidor de Render envía el archivo a Cloudinary
             result = cloudinary.uploader.upload(
-                files[file_key], 
+                files[file_key],
                 resource_type="auto",
                 access_mode="public",
                 type="upload")
@@ -147,7 +153,7 @@ def submit_registration():
             url_permiso_sanitario=url_sanitario,
             url_titulo_profesional=url_titulo
         )
-        
+
         db.session.add(new_request)
         db.session.commit()
     except Exception as e:
@@ -178,6 +184,7 @@ def submit_registration():
 
     return jsonify({"message": "Solicitud recibida exitosamente"}), 201
 
+
 @api.route('/admin/requests', methods=['GET'])
 @jwt_required()
 @roles_required(RoleEnum.SUPER_ADMIN)
@@ -186,9 +193,11 @@ def get_all_requests():
     claims = get_jwt()
     if claims.get("role") != RoleEnum.SUPER_ADMIN.value:
         return jsonify({"message": "No autorizado"}), 403
-    
-    requests = ClinicRequest.query.filter_by(status=RequestStatus.PENDING).all()
+
+    requests = ClinicRequest.query.filter_by(
+        status=RequestStatus.PENDING).all()
     return jsonify([r.serialize() for r in requests]), 200
+
 
 @api.route('/admin/approve-request/<int:request_id>', methods=['POST'])
 @jwt_required()
@@ -227,7 +236,7 @@ def approve_request(request_id):
     )
     db.session.add(nueva_clinica)
     db.session.flush()
-    
+
     nuevo_usuario.clinic_id = nueva_clinica.id
     solicitud.status = RequestStatus.APPROVED
     db.session.commit()
@@ -249,13 +258,13 @@ def approve_request(request_id):
                     <p style="color: #666; font-size: 0.9em;">* Por seguridad, el sistema te pedirá cambiar esta clave al ingresar por primera vez.</p>
                     <a href="https://tu-url-de-render.com/login" 
                        style="background-color: #0d6efd; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 15px;">
-                       Ir al Login
+                        Ir al Login
                     </a>
                 </div>
             </body>
         </html>
         """
-        
+
         msg = EmailMessage(
             subject="🎉 ¡Tu clínica ha sido aprobada! - PetHealth & Spa",
             body=body_html,
@@ -263,14 +272,15 @@ def approve_request(request_id):
         )
         msg.content_subtype = "html"  # IMPORTANTE para que se vea el diseño
         msg.send()
-        
+
     except Exception as e:
         print(f"Error enviando correo: {e}")
 
     return jsonify({
         "message": "Clínica aprobada exitosamente",
-        "temp_password": temp_pw 
+        "temp_password": temp_pw
     }), 200
+
 
 @api.route('/admin/reject-request/<int:request_id>', methods=['POST'])
 @jwt_required()
@@ -287,7 +297,8 @@ def reject_request(request_id):
 
     data = request.json
     # Capturamos las observaciones enviadas desde el modal
-    observaciones = data.get("observaciones", "No se especificó un motivo detallado.")
+    observaciones = data.get(
+        "observaciones", "No se especificó un motivo detallado.")
 
     try:
         # Cambiamos el estatus a REJECTED (ya definido en tu models.py)
@@ -329,7 +340,9 @@ def reject_request(request_id):
 
     return jsonify({"message": "Solicitud rechazada exitosamente"}), 200
 
-## COMIENZO DE LOS ENDPOINTS PARA CLÍNICAS
+# COMIENZO DE LOS ENDPOINTS PARA CLÍNICAS
+
+
 @api.route('/clinics', methods=['GET'])
 @jwt_required()
 @roles_required(RoleEnum.SUPER_ADMIN)
@@ -337,10 +350,11 @@ def handle_clinics():
     claims = get_jwt()
     if claims.get("role") != RoleEnum.SUPER_ADMIN.value:
         return jsonify({"message": "Acceso restringido"}), 403
-    
+
     all_clinics = Clinic.query.all()
     return jsonify([clinic.serialize() for clinic in all_clinics]), 200
-    
+
+
 @api.route('/clinics/<int:clinic_id>', methods=['PUT', 'DELETE'])
 @jwt_required()
 @roles_required(RoleEnum.SUPER_ADMIN)
@@ -350,7 +364,7 @@ def update_or_delete_clinic(clinic_id):
         return jsonify({"message": "Acceso restringido"}), 403
 
     clinic = Clinic.query.get(clinic_id)
-    
+
     if not clinic:
         return jsonify({"error": "Clínica no encontrada"}), 404
 
@@ -369,8 +383,9 @@ def update_or_delete_clinic(clinic_id):
         if 'is_active' in body:
             clinic.is_active = body['is_active']
             if not clinic.is_active:
-                clinic.suspension_reason = body.get('suspension_reason', "Suspensión administrativa")
-                
+                clinic.suspension_reason = body.get(
+                    'suspension_reason', "Suspensión administrativa")
+
         if 'nombre' in body:
             clinic.nombre = body['nombre']
         if 'rif' in body:
@@ -390,3 +405,68 @@ def update_or_delete_clinic(clinic_id):
             "message": "Clínica actualizada exitosamente",
             "clinic": clinic.serialize()
         }), 200
+
+# --- NUEVOS ENDPOINTS DE TU TAREA (PARA PETS Y APPOINTMENTS) ---
+
+
+@api.route('/users/me/pets', methods=['GET'])
+@jwt_required()
+def get_my_pets():
+    user_id = get_jwt_identity()
+    pets = Pet.query.filter_by(user_id=user_id).all()
+    return jsonify([pet.serialize() for pet in pets]), 200
+
+
+@api.route('/pets', methods=['POST'])
+@jwt_required()
+def add_pet():
+    user_id = get_jwt_identity()
+    body = request.json
+    if not body.get("nombre"):
+        return jsonify({"msg": "Nombre obligatorio"}), 400
+
+    new_pet = Pet(
+        nombre=body['nombre'],
+        especie=body.get('especie', 'Otro'),
+        raza=body.get('raza', 'Desconocida'),
+        user_id=user_id
+    )
+    db.session.add(new_pet)
+    db.session.commit()
+    return jsonify(new_pet.serialize()), 201
+
+
+@api.route('/appointments', methods=['POST'])
+@jwt_required()
+def create_appointment():
+    user_id = get_jwt_identity()
+    body = request.json
+
+    if not body.get("pet_id") or not body.get("date"):
+        return jsonify({"msg": "Faltan datos obligatorios"}), 400
+
+    try:
+        # Limpiamos el formato de la fecha que viene del input datetime-local
+        date_str = body['date'].replace('T', ' ')
+        date_obj = datetime.fromisoformat(body['date'].replace('Z', '+00:00'))
+    except Exception:
+        return jsonify({"msg": "Formato de fecha inválido"}), 400
+
+    # Buscamos la primera clínica activa para asignar la cita
+    clinic = Clinic.query.filter_by(is_active=True).first()
+    if not clinic:
+        return jsonify({"msg": "No hay clínicas disponibles"}), 404
+
+    new_appointment = Appointment(
+        date_time=date_obj,
+        tipo=body.get('service_type', 'Consulta'),
+        status=AppointmentStatus.PROGRAMADA,  # Estado inicial "Pendiente"
+        pet_id=body['pet_id'],
+        clinic_id=clinic.id,
+        user_id=user_id
+    )
+
+    db.session.add(new_appointment)
+    db.session.commit()
+
+    return jsonify({"msg": "Cita solicitada con éxito"}), 201

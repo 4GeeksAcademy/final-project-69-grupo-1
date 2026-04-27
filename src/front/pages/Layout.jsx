@@ -5,11 +5,11 @@ import ScrollToTop from "../components/ScrollToTop";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 
-// Base component that maintains the navbar and footer throughout the page and the scroll to top functionality.
+// Base component que mantiene el navbar y footer en todas las páginas.
 export const Layout = () => {
     return (
         <ScrollToTop>
-            {/* Toaster permite que toast.success() y toast.error() se vean en pantalla */}
+            {/* Toaster permite ver las notificaciones de éxito/error que instalamos antes */}
             <Toaster 
                 position="top-center"
                 reverseOrder={false}
@@ -22,7 +22,8 @@ export const Layout = () => {
                 }}
             />
             <Navbar />
-            <div style={{ minHeight: "80vh" }}> {/* Asegura que el footer no "salte" en páginas cortas */}
+            <div style={{ minHeight: "80vh" }}> 
+                {/* Outlet renderiza la página que corresponda según la URL */}
                 <Outlet />
             </div>
             <Footer />
