@@ -6,7 +6,7 @@ from flask import Flask, request, jsonify, url_for, send_from_directory
 from flask_migrate import Migrate
 from flask_swagger import swagger
 from flask_cors import CORS
-from api.utils import APIException, generate_sitemap
+from api.utils import APIException, generate_sitemap, setup_initial_admins
 from api.models import db
 from api.routes import api
 from api.admin import setup_admin
@@ -55,6 +55,10 @@ db.init_app(app)
 # Setup Admin y Commands
 setup_admin(app)
 setup_commands(app)
+
+with app.app_context():
+    print("Iniciando validación de SuperAdmins...")
+    setup_initial_admins()
 
 # --- 1. REGISTRO DEL BLUEPRINT (IMPORTANTE: DEBE IR ANTES DE LAS RUTAS DE ARCHIVOS) ---
 app.register_blueprint(api, url_prefix='/api')

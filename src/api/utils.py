@@ -1,7 +1,8 @@
+import os
 from functools import wraps
 from flask_jwt_extended import get_jwt, verify_jwt_in_request
 from flask import jsonify, url_for
-from api.models import RoleEnum
+from api.models import db, User, RoleEnum
 
 class APIException(Exception):
     status_code = 400
@@ -41,6 +42,39 @@ def roles_required(*roles):
             return fn(*args, **kwargs)
         return decorator
     return wrapper
+
+def setup_initial_admins():
+    print("🚀 Verificando SuperAdmins del equipo...")
+    
+    # Iteramos por los 3 administradores
+    for i in range(1, 4):
+        email = os.getenv(f"ADMIN{i}_EMAIL")
+        password = os.getenv(f"ADMIN{i}_PASS")
+        name = os.getenv(f"ADMIN{i}_NAME")
+
+        if email and password:
+            # Validamos si ya existe para no duplicar
+            user_exists = User.query.filter_by(email=email).first()
+            
+            if not user_exists:
+                new_admin = User(
+                    email=email,
+                    full_name=name if name else f"Admin {i}",
+                    role=RoleEnum.SUPER_ADMIN,
+                    is_active=True,
+                    must_change_password=False
+                )
+                new_admin.set_password = password # Activa el setter y hashea
+                db.session.add(new_admin)
+                print(f"✅ Creado: {email}")
+            else:
+                print(f"ℹ️ Ya existe: {email}")
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error guardando admins: {e}")
 
 def generate_sitemap(app):
     links = ['/admin/']
