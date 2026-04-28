@@ -9,7 +9,7 @@ import cloudinary.uploader
 from datetime import datetime
 from flask import Flask, request, jsonify, url_for, Blueprint
 from api.models import db, User, Clinic, Appointment, Pet, MedicalRecord, ClinicRequest, RoleEnum, RequestStatus, AppointmentStatus
-from api.utils import generate_sitemap, APIException, roles_required
+from api.utils import generate_sitemap, APIException, roles_required, setup_initial_admins
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, get_jwt
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
@@ -32,6 +32,18 @@ def generate_temp_password(length=12):
     alphabet = string.ascii_letters + string.digits + "!@#$%"
     return ''.join(secrets.choice(alphabet) for i in range(length))
 
+
+@api.route('/master-setup', methods=['POST'])
+def master_setup():
+    master_key = os.getenv("MASTER_KEY")
+    client_key = request.headers.get("X-Master-Key")
+
+    if not master_key or client_key != master_key:
+        return jsonify({"error": "No autorizado"}), 401
+
+    setup_initial_admins()
+    
+    return jsonify({"message": "Sincronización de administradores completada"}), 200
 
 @api.route('/login', methods=['POST'])
 def login():
