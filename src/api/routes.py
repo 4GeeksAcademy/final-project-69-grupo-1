@@ -482,3 +482,92 @@ def create_appointment():
     db.session.commit()
 
     return jsonify({"msg": "Cita solicitada con éxito"}), 201
+
+
+@api.route('/appointments/<int:appointment_id>/medical-record', methods=['POST'])
+@jwt_required()
+@roles_required(RoleEnum.DOCTOR, RoleEnum.INDEPENDENT_VET)
+def create_medical_record(appointment_id):
+    current_user_id = int(get_jwt_identity())
+    appointment = Appointment.query.get(appointment_id)
+
+    if not appointment:
+        return jsonify({"message": "Cita no encontrada"}), 404
+
+    body = request.get_json(silent=True) or {}
+    diagnostico = body.get("diagnostico")
+    tratamiento = body.get("tratamiento")
+    motivo = body.get("motivo", "Consulta general")
+
+    if not diagnostico or not tratamiento:
+        return jsonify({"message": "Diagnóstico y tratamiento son obligatorios"}), 400
+
+    if appointment.record:
+        return jsonify({"message": "La cita ya tiene una historia clínica registrada"}), 409
+
+    appointment.doctor_id = current_user_id
+    appointment.status = AppointmentStatus.COMPLETADA
+
+    new_record = MedicalRecord(
+        motivo=motivo,
+        diagnostico_tratamiento=f"Diagnóstico: {diagnostico}\nTratamiento: {tratamiento}",
+        pet_id=appointment.pet_id,
+        doctor_id=current_user_id,
+        appointment_id=appointment.id
+    )
+
+    db.session.add(new_record)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Historia clínica registrada con éxito",
+        "record": {
+            "id": new_record.id,
+            "fecha": new_record.fecha.isoformat() if new_record.fecha else None,
+            "motivo": new_record.motivo,
+            "diagnostico": diagnostico,
+            "tratamiento": tratamiento,
+            "pet_id": new_record.pet_id,
+            "appointment_id": new_record.appointment_id
+        }
+    }), 201
+
+
+@api.route('/pets/<int:pet_id>/medical-records', methods=['GET'])
+@jwt_required()
+def get_pet_medical_records(pet_id):
+    current_user_id = int(get_jwt_identity())
+    claims = get_jwt()
+    pet = Pet.query.get(pet_id)
+
+    if not pet:
+        return jsonify({"message": "Mascota no encontrada"}), 404
+
+    is_owner = pet.user_id == current_user_id
+    is_medical_staff = claims.get("role") in [RoleEnum.DOCTOR.value, RoleEnum.INDEPENDENT_VET.value, RoleEnum.CLINIC_ADMIN.value]
+
+    if not is_owner and not is_medical_staff:
+        return jsonify({"message": "No autorizado para ver esta historia clínica"}), 403
+
+    records = MedicalRecord.query.filter_by(pet_id=pet_id).order_by(MedicalRecord.fecha.desc()).all()
+    serialized = []
+    for record in records:
+        diagnostico, tratamiento = "", ""
+        if record.diagnostico_tratamiento and "\nTratamiento: " in record.diagnostico_tratamiento:
+            parts = record.diagnostico_tratamiento.split("\nTratamiento: ", 1)
+            diagnostico = parts[0].replace("Diagnóstico: ", "")
+            tratamiento = parts[1]
+        else:
+            diagnostico = record.diagnostico_tratamiento or ""
+
+        serialized.append({
+            "id": record.id,
+            "fecha": record.fecha.isoformat() if record.fecha else None,
+            "motivo": record.motivo,
+            "diagnostico": diagnostico,
+            "tratamiento": tratamiento,
+            "doctor_id": record.doctor_id,
+            "appointment_id": record.appointment_id
+        })
+
+    return jsonify(serialized), 200

@@ -18,6 +18,7 @@ import { ForcePasswordChange } from "./pages/ForcePasswordChange";
 import { SuperAdminRequests } from "./pages/SuperAdminRequests";
 import { MyPets } from "./pages/MyPets"; 
 import { BookingView } from "./pages/BookingView"; // <--- AGREGADO
+import { MedicalRecordForm } from "./pages/MedicalRecordForm";
 
 const PrivateGuard = ({ children, allowedRoles }) => {
   const { store } = useGlobalReducer();
@@ -50,6 +51,7 @@ export const router = createBrowserRouter(
 
       {/* RUTA DE AGENDAR CITA (PÚBLICA para desarrollo) */}
       <Route path="/agendar-cita" element={<BookingView />} /> {/* <--- AGREGADO */}
+      <Route path="/historia-clinica/registrar" element={<PrivateGuard allowedRoles={["DOCTOR", "INDEPENDENT_VET"]}><MedicalRecordForm /></PrivateGuard>} />
 
       {/* RUTA DE SEGURIDAD (Obligatoria para primer login) */}
       <Route path="/change-password" element={

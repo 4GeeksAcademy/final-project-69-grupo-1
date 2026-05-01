@@ -1,8 +1,11 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useGlobalReducer } from "../hooks/useGlobalReducer";
 
 export const Navbar = () => {
     const navigate = useNavigate();
+    const { store } = useGlobalReducer();
+    const canRegisterRecord = ["DOCTOR", "INDEPENDENT_VET"].includes(store.user?.role);
 
     return (
         <nav className="navbar navbar-light bg-white border-bottom px-4">
@@ -14,6 +17,14 @@ export const Navbar = () => {
 
                 {/* Lado Derecho: Usuario y Login (Zona Roja de tu imagen) */}
                 <div className="d-flex align-items-center gap-3">
+                    {canRegisterRecord && (
+                        <button
+                            className="btn btn-outline-primary rounded-pill px-3"
+                            onClick={() => navigate("/historia-clinica/registrar")}
+                        >
+                            Historia clínica
+                        </button>
+                    )}
                     <div className="bg-light rounded-circle d-flex align-items-center justify-content-center shadow-sm" 
                          style={{ width: "38px", height: "38px" }}>
                         <i className="fa-solid fa-user text-secondary"></i>
