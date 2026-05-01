@@ -64,7 +64,7 @@ def setup_initial_admins():
                     is_active=True,
                     must_change_password=False
                 )
-                new_admin.set_password = password # Activa el setter y hashea
+                new_admin.password = password # Activa el setter y hashea
                 db.session.add(new_admin)
                 print(f"✅ Creado: {email}")
             else:
