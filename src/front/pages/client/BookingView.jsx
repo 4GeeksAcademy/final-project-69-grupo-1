@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useGlobalReducer } from "../hooks/useGlobalReducer";
+import { useGlobalReducer } from "../../hooks/useGlobalReducer";
 
 export const BookingView = () => {
     const { store } = useGlobalReducer();

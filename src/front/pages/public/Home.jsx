@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
+import useGlobalReducer from "../../hooks/useGlobalReducer.jsx";
 
 export const Home = () => {
     const { store } = useGlobalReducer();

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
-import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
+import useGlobalReducer from "../../hooks/useGlobalReducer.jsx";
 
 // Importamos los modales
-import { ToggleStatusModal } from "../components/modals/ToggleStatusModal.jsx";
-import { EditClinicModal } from "../components/modals/EditClinicModal.jsx";
-import { DeleteClinicModal } from "../components/modals/DeleteClinicModal.jsx";
-import { ViewClinicDetailsModal } from "../components/modals/ViewClinicDetailsModal.jsx";
+import { ToggleStatusModal } from "../../components/modals/ToggleStatusModal.jsx";
+import { EditClinicModal } from "../../components/modals/EditClinicModal.jsx";
+import { DeleteClinicModal } from "../../components/modals/DeleteClinicModal.jsx";
+import { ViewClinicDetailsModal } from "../../components/modals/ViewClinicDetailsModal.jsx";
 
 export const AdminClinics = () => {
     const { store, dispatch } = useGlobalReducer();

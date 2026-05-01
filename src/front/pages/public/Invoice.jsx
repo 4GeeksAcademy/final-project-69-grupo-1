@@ -1,7 +1,7 @@
 import React from "react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import useGlobalReducer from "../hooks/useGlobalReducer.jsx"; // Importamos para usar datos reales
+import useGlobalReducer from "../../hooks/useGlobalReducer.jsx"; // Importamos para usar datos reales
 
 export const Invoice = () => {
     const { store } = useGlobalReducer();

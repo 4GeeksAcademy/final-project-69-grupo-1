@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom"; // Importamos Link
-import { useGlobalReducer } from "../hooks/useGlobalReducer";
+import { useGlobalReducer } from "../../hooks/useGlobalReducer";
 import toast from "react-hot-toast"; 
 
 export const Login = () => {

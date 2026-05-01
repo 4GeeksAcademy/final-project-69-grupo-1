@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useGlobalReducer } from "../hooks/useGlobalReducer";
+import { useGlobalReducer } from "../../hooks/useGlobalReducer";
 import toast from "react-hot-toast";
 
 // Motivos de rechazo predefinidos para estandarizar respuestas

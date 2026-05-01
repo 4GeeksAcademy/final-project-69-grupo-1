@@ -5,19 +5,19 @@ import {
   Navigate
 } from "react-router-dom";
 import { useGlobalReducer } from "./hooks/useGlobalReducer";
-import { Layout } from "./pages/Layout";
-import { Home } from "./pages/Home";
-import { Single } from "./pages/Single";
-import { Demo } from "./pages/Demo";
+import { Layout } from "./pages/public/Layout";
+import { Home } from "./pages/public/Home";
+import { Single } from "./pages/public/Single";
+import { Demo } from "./pages/public/Demo";
 import React from "react";
-import { AdminClinics } from "./pages/AdminClinics";
-import { Invoice } from "./pages/Invoice";
-import { Login } from "./pages/Login";
-import { RegistrationLanding } from "./pages/RegistrationLanding";
-import { ForcePasswordChange } from "./pages/ForcePasswordChange";
-import { SuperAdminRequests } from "./pages/SuperAdminRequests";
-import { MyPets } from "./pages/MyPets"; 
-import { BookingView } from "./pages/BookingView"; // <--- AGREGADO
+import { AdminClinics } from "./pages/admin/AdminClinics";
+import { Invoice } from "./pages/public/Invoice";
+import { Login } from "./pages/auth/Login";
+import { RegistrationLanding } from "./pages/auth/RegistrationLanding";
+import { ForcePasswordChange } from "./pages/auth/ForcePasswordChange";
+import { SuperAdminRequests } from "./pages/admin/SuperAdminRequests";
+import { MyPets } from "./pages/client/MyPets"; 
+import { BookingView } from "./pages/client/BookingView"; // <--- AGREGADO
 
 const PrivateGuard = ({ children, allowedRoles }) => {
   const { store } = useGlobalReducer();
