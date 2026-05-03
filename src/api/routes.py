@@ -2,20 +2,22 @@
 This module takes care of starting the API Server, Loading the DB and Adding the endpoints
 """
 import secrets
+import csv
+import io
 import string
 import os
 import cloudinary
 import cloudinary.uploader
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from flask import Flask, request, jsonify, url_for, Blueprint
 from api.models import db, User, Clinic, Appointment, Pet, MedicalRecord, ClinicRequest, RoleEnum, RequestStatus, AppointmentStatus
-from api.utils import generate_sitemap, APIException, roles_required, setup_initial_admins
-from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, get_jwt
+from api.utils import generate_sitemap, APIException, generate_temp_password, roles_required, setup_initial_admins, generate_staff_code, send_registration_notification, send_approval_email, send_rejection_email, send_staff_invitation_email, send_welcome_staff_email
+from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, get_jwt, decode_token
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
 from flask_mailman import EmailMessage
 
-api = Blueprint('api', __name__)
+api = Blueprint('api', __name__, template_folder='templates')
 
 # Allow CORS requests to this API
 CORS(api)
@@ -42,8 +44,9 @@ def master_setup():
         return jsonify({"error": "No autorizado"}), 401
 
     setup_initial_admins()
-    
+
     return jsonify({"message": "Sincronización de administradores completada"}), 200
+
 
 @api.route('/login', methods=['POST'])
 def login():
@@ -173,26 +176,7 @@ def submit_registration():
         print(f"Error guardando en DB: {e}")
         return jsonify({"error": "Error al guardar la solicitud"}), 500
 
-    # 5. ENVÍO DE CORREOS (Doble notificación)
-    try:
-        # Notificación para TI (Admin)
-        admin_msg = EmailMessage(
-            subject="🔔 NUEVA SOLICITUD - PetHealth & Spa",
-            body=f"Has recibido una solicitud de: {new_request.nombre_clinica}. Revisa el panel de control.",
-            to=[os.getenv('MAIL_USERNAME')]
-        )
-        admin_msg.send()
-
-        # Confirmación para el CLIENTE
-        client_msg = EmailMessage(
-            subject="Solicitud Recibida - PetHealth & Spa",
-            body=f"Hola {new_request.nombre_admin}, hemos recibido tus documentos. En 24h te daremos respuesta.",
-            to=[email]
-        )
-        client_msg.send()
-    except Exception as e:
-        # Si el correo falla, no detenemos la respuesta del servidor
-        print(f"Error de envío de mail: {e}")
+    send_registration_notification(new_request)
 
     return jsonify({"message": "Solicitud recibida exitosamente"}), 201
 
@@ -237,14 +221,18 @@ def approve_request(request_id):
     db.session.add(nuevo_usuario)
     db.session.flush()
 
+    nuevo_codigo = generate_staff_code(solicitud.nombre_clinica)
+
     # 2. Crear Clínica
     nueva_clinica = Clinic(
         nombre=solicitud.nombre_clinica,
+        tipo_sede=solicitud.tipo_solicitud,
         rif=solicitud.rif_empresa if solicitud.tipo_solicitud == 'EMPRESA' else solicitud.cedula_identidad,
         ubicacion=solicitud.direccion,
         telefono=solicitud.telefono,
         correo=solicitud.email,
-        is_active=True
+        is_active=True,
+        staff_code=nuevo_codigo
     )
     db.session.add(nueva_clinica)
     db.session.flush()
@@ -253,40 +241,12 @@ def approve_request(request_id):
     solicitud.status = RequestStatus.APPROVED
     db.session.commit()
 
-    try:
-        body_html = f"""
-        <html>
-            <body style="font-family: Arial, sans-serif; color: #333;">
-                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px; border: 1px solid #dee2e6;">
-                    <h2 style="color: #0d6efd;">¡Bienvenido a PetHealth & Spa!</h2>
-                    <p>Hola <strong>{solicitud.nombre_admin or solicitud.nombre_clinica}</strong>,</p>
-                    <p>Tu sede <strong>{solicitud.nombre_clinica}</strong> ha sido aprobada exitosamente por nuestro equipo administrativo.</p>
-                    <hr />
-                    <p>Aquí tienes tus credenciales de acceso temporal:</p>
-                    <p style="font-size: 1.2em; background-color: #fff; padding: 10px; border: 1px dashed #0d6efd; display: inline-block;">
-                        <strong>Usuario:</strong> {solicitud.email}<br>
-                        <strong>Clave Temporal:</strong> <code>{temp_pw}</code>
-                    </p>
-                    <p style="color: #666; font-size: 0.9em;">* Por seguridad, el sistema te pedirá cambiar esta clave al ingresar por primera vez.</p>
-                    <a href="https://tu-url-de-render.com/login" 
-                       style="background-color: #0d6efd; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 15px;">
-                        Ir al Login
-                    </a>
-                </div>
-            </body>
-        </html>
-        """
-
-        msg = EmailMessage(
-            subject="🎉 ¡Tu clínica ha sido aprobada! - PetHealth & Spa",
-            body=body_html,
-            to=[solicitud.email]
-        )
-        msg.content_subtype = "html"  # IMPORTANTE para que se vea el diseño
-        msg.send()
-
-    except Exception as e:
-        print(f"Error enviando correo: {e}")
+    send_approval_email(
+        user_email=solicitud.email,
+        admin_name=solicitud.nombre_admin,
+        clinic_name=solicitud.nombre_clinica,
+        temp_pw=temp_pw
+    )
 
     return jsonify({
         "message": "Clínica aprobada exitosamente",
@@ -313,44 +273,21 @@ def reject_request(request_id):
         "observaciones", "No se especificó un motivo detallado.")
 
     try:
-        # Cambiamos el estatus a REJECTED (ya definido en tu models.py)
         solicitud.status = RequestStatus.REJECTED
         db.session.commit()
+
+        # Enviamos el correo usando la nueva función
+        send_rejection_email(
+            user_email=solicitud.email,
+            admin_name=solicitud.nombre_admin,
+            clinic_name=solicitud.nombre_clinica,
+            observaciones=observaciones
+        )
+
+        return jsonify({"message": "Solicitud rechazada exitosamente"}), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-
-    # Envío del correo de notificación
-    try:
-        body_html = f"""
-        <html>
-            <body style="font-family: Arial, sans-serif; color: #333;">
-                <div style="background-color: #fff; padding: 20px; border: 1px solid #dc3545; border-radius: 10px;">
-                    <h2 style="color: #dc3545;">Solicitud de Registro - PetHealth & Spa</h2>
-                    <p>Hola <strong>{solicitud.nombre_admin}</strong>,</p>
-                    <p>Lamentamos informarle que su solicitud para <strong>{solicitud.nombre_clinica}</strong> ha sido rechazada.</p>
-                    <hr />
-                    <p><strong>Motivo del rechazo:</strong></p>
-                    <p style="background-color: #f8f9fa; padding: 15px; border-left: 5px solid #dc3545;">
-                        {observaciones}
-                    </p>
-                    <hr />
-                    <p>Si desea corregir los puntos mencionados, puede realizar una nueva solicitud.</p>
-                </div>
-            </body>
-        </html>
-        """
-        msg = EmailMessage(
-            subject="Información sobre su solicitud - PetHealth & Spa",
-            body=body_html,
-            to=[solicitud.email]
-        )
-        msg.content_subtype = "html"
-        msg.send()
-    except Exception as e:
-        print(f"Error enviando correo: {e}")
-
-    return jsonify({"message": "Solicitud rechazada exitosamente"}), 200
 
 # COMIENZO DE LOS ENDPOINTS PARA CLÍNICAS
 
@@ -417,6 +354,329 @@ def update_or_delete_clinic(clinic_id):
             "message": "Clínica actualizada exitosamente",
             "clinic": clinic.serialize()
         }), 200
+
+# 1. Listar personal de MI clínica
+
+
+@api.route('/clinics/<int:clinic_id>/staff', methods=['GET'])
+@jwt_required()
+@roles_required(RoleEnum.CLINIC_ADMIN, RoleEnum.INDEPENDENT_VET, RoleEnum.SUPER_ADMIN)
+def get_clinic_staff(clinic_id):
+    staff = User.query.filter_by(clinic_id=clinic_id).all()
+    return jsonify([member.serialize() for member in staff]), 200
+
+# 2. Activar/Vetar empleado
+
+
+@api.route('/users/<int:user_id>/status', methods=['PATCH'])
+@jwt_required()
+@roles_required(RoleEnum.CLINIC_ADMIN, RoleEnum.INDEPENDENT_VET)
+def toggle_user_status(user_id):
+    user = User.query.get(user_id)
+    # Validación: El admin solo puede tocar gente de SU clínica
+    claims = get_jwt()
+    if user.clinic_id != claims.get("clinic_id"):
+        return jsonify({"msg": "No tienes permiso sobre este usuario"}), 403
+
+    data = request.json
+    user.is_active = data.get("is_active")
+    db.session.commit()
+    return jsonify({"msg": "Estado actualizado"}), 200
+
+
+@api.route('/clinic/invite-staff', methods=['POST'])
+@jwt_required()
+@roles_required(RoleEnum.CLINIC_ADMIN, RoleEnum.INDEPENDENT_VET)
+def invite_staff():
+    admin_claims = get_jwt()
+    clinic_id = admin_claims.get("clinic_id")
+
+    if not clinic_id:
+        return jsonify({"msg": "Usted no tiene una clínica asociada"}), 400
+
+    clinic = Clinic.query.get(clinic_id)
+    if not clinic:
+        return jsonify({"msg": "Clínica no encontrada"}), 404
+
+    data = request.json
+    email = data.get("email")
+    role = data.get("role")  # 'VET' o 'RECEPTIONIST'
+
+    allowed_roles = [RoleEnum.DOCTOR.value, RoleEnum.RECEPTIONIST.value]
+
+    # Rol específico según el tipo
+    if clinic.tipo_sede == "INDEPENDIENTE":
+        allowed_roles.append(RoleEnum.INDEPENDENT_VET.value)
+    else:
+        allowed_roles.append(RoleEnum.CLINIC_ADMIN.value)
+
+    if role not in allowed_roles:
+        return jsonify({"msg": "Rol no permitido para esta sede"}), 403
+
+    # Generamos un token temporal (puedes guardarlo en una tabla 'Invitations' o usar JWT)
+    # Por simplicidad, usemos un JWT que expire en 48h
+    invite_token = create_access_token(
+        identity=email,
+        additional_claims={
+            "is_invite": True,
+            "clinic_id": clinic_id,
+            "role": role
+        },
+        expires_delta=timedelta(hours=48)
+    )
+
+    frontend_url = os.getenv("VITE_FROTEND_URL", "http://localhost:3000")
+    invite_link = f"{frontend_url}/registro-empleado?token={invite_token}"
+
+    # ENVÍO DEL CORREO
+    success = send_staff_invitation_email(
+        target_email=email,
+        clinic_name=clinic.nombre,
+        role_name=role,
+        invite_link=invite_link
+    )
+
+    if not success:
+        return jsonify({"msg": "Token generado pero el correo no pudo enviarse"}), 500
+
+    return jsonify({"message": "Invitación enviada con éxito", "email": email}), 200
+
+
+@api.route('/validate-invite', methods=['GET'])
+def validate_invite():
+    token = request.args.get("token")
+    try:
+        decoded = decode_token(token)
+        # CAMBIO AQUÍ: Los claims están directamente en 'decoded'
+        clinic_id = decoded.get("clinic_id")
+        role = decoded.get("role")
+        email = decoded.get("sub")
+
+        clinic = Clinic.query.get(clinic_id)
+        
+        if clinic is None:
+            return jsonify({"msg": f"Error: La clínica con ID {clinic_id} no existe"}), 404
+
+        return jsonify({
+            "email": email,
+            "clinic_name": clinic.nombre, 
+            "role": role
+        }), 200
+    except Exception as e:
+        print(f"Error decodificando: {str(e)}")
+        return jsonify({"msg": "Token inválido o expirado"}), 401
+    
+@api.route('/clinic/register-invited', methods=['POST'])
+def register_invited_staff():
+    data = request.json
+    token = data.get("token")
+    password = data.get("password")
+    full_name = data.get("full_name")
+    
+
+    if not all([token, password, full_name]):
+        return jsonify({"msg": "Faltan campos obligatorios"}), 400
+
+    try:
+        # 1. Decodificar el token
+        decoded = decode_token(token)
+        
+        # CAMBIO CRÍTICO: Accedemos directamente a las llaves (iat, sub, clinic_id, role están al mismo nivel)
+        email = decoded.get("sub")
+        role = decoded.get("role")
+        clinic_id = decoded.get("clinic_id")
+        
+        # Validación de seguridad: Si no hay clinic_id en el token, algo está mal
+        if clinic_id is None:
+            return jsonify({"msg": "El link no contiene información de la sede"}), 400
+
+        # 2. Verificar si ya se registró alguien con este mail
+        user_exists = User.query.filter_by(email=email).first()
+        if user_exists:
+            return jsonify({"msg": "Este usuario ya completó su registro previamente"}), 400
+
+        # 3. Crear el nuevo empleado
+        new_staff = User(
+            email=email,
+            password=generate_password_hash(password),
+            full_name=full_name,
+            role=role,        # Viene del token (ej: 'RECEPTIONIST')
+            clinic_id=clinic_id, # Viene del token (ej: 1)
+            is_active=True,
+            must_change_password=False 
+        )
+
+        db.session.add(new_staff)
+        db.session.commit()
+
+        return jsonify({"msg": "¡Registro completado con éxito! Ya puedes iniciar sesión."}), 201
+
+    except Exception as e:
+        # IMPORTANTE: Mira tu terminal de Flask, aquí saldrá el error real si esto falla
+        print(f"DEBUG - ERROR EN REGISTRO: {str(e)}")
+        return jsonify({"msg": f"Error al guardar: {str(e)}"}), 400
+
+@api.route('/register-with-code', methods=['POST'])
+def register_staff():
+    data = request.json
+
+    # 1. Validar que el código de sede existe
+    staff_code = data.get("staff_code")
+    clinic = Clinic.query.filter_by(staff_code=staff_code).first()
+
+    if not clinic:
+        return jsonify({"message": "El código de sede es inválido o ha expirado"}), 404
+
+    # 2. Verificar si el email ya está en uso (Vital para evitar errores 500)
+    email = data.get("email")
+    if User.query.filter_by(email=email).first():
+        return jsonify({"message": "Este correo electrónico ya está registrado en PetHealth"}), 400
+
+    # 3. Crear el nuevo usuario vinculado a la clínica
+    try:
+        new_user = User(
+            email=email,
+            password=generate_password_hash(data.get("password")),
+            full_name=data.get("full_name"),
+            # Convertimos el string que viene del front ("VET" o "RECEPTIONIST") al Enum
+            role=RoleEnum(data.get("role")),
+            clinic_id=clinic.id,
+            is_active=False,  # Pendiente por aprobación del Admin de la sede
+            must_change_password=False  # El usuario ya está eligiendo su clave aquí
+        )
+
+        db.session.add(new_user)
+        db.session.commit()
+
+        return jsonify({
+            "message": f"¡Registro exitoso! Te has unido a {clinic.nombre}. Tu acceso está pendiente de activación por el administrador."
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": "Error interno al procesar el registro", "error": str(e)}), 500
+
+@api.route('/clinics/bulk-staff-upload', methods=['POST'])
+@jwt_required()
+@roles_required(RoleEnum.CLINIC_ADMIN, RoleEnum.INDEPENDENT_VET)
+def bulk_staff_upload():
+    admin_claims = get_jwt()
+    admin_clinic_id = admin_claims.get("clinic_id")
+
+    # 1. Obtener información de la clínica para validar roles permitidos
+    clinic = Clinic.query.get(admin_clinic_id)
+    if not clinic:
+        return jsonify({"message": "Sede no encontrada"}), 404
+
+    if 'file' not in request.files:
+        return jsonify({"message": "No se encontró el archivo"}), 400
+
+    file = request.files['file']
+    if not file.filename.endswith('.csv'):
+        return jsonify({"message": "El formato debe ser .csv"}), 400
+
+    # Leer el archivo CSV
+    stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+    reader = csv.DictReader(stream)
+
+    users_created = 0
+    errors = []
+
+    # Definir roles permitidos según el tipo de sede (Igual que en la invitación individual)
+    allowed_roles = [RoleEnum.DOCTOR.value, RoleEnum.RECEPTIONIST.value]
+    if clinic.tipo_sede == "INDEPENDIENTE":
+        allowed_roles.append(RoleEnum.INDEPENDENT_VET.value)
+    else:
+        allowed_roles.append(RoleEnum.CLINIC_ADMIN.value)
+
+    for row in reader:
+        email = row.get('email', '').strip()
+        full_name = row.get('full_name', '').strip()
+        role_input = row.get('role', '').strip()
+
+        try:
+            # Validaciones básicas de datos
+            if not email or not full_name or not role_input:
+                errors.append(f"Fila incompleta para {email or 'desconocido'}. Saltando.")
+                continue
+
+            # Validar si el usuario ya existe en el sistema
+            if User.query.filter_by(email=email).first():
+                errors.append(f"El correo {email} ya está registrado.")
+                continue
+
+            # Validar si el rol es permitido para esta sede
+            if role_input not in allowed_roles:
+                errors.append(f"Rol '{role_input}' no permitido para esta sede.")
+                continue
+
+            # 6. Crear Usuario con Contraseña Temporal
+            temp_pass = generate_temp_password()
+            new_user = User(
+                email=email,
+                full_name=full_name,
+                role=role_input,
+                clinic_id=admin_clinic_id,
+                is_active=True,
+                must_change_password=True  # Obligatorio para staff nuevo
+            )
+            new_user.set_password(temp_pass)
+            
+            db.session.add(new_user)
+            db.session.flush() # Flush para asegurar que no hay errores de BD antes del correo
+
+            # 7. Disparar Correo de Bienvenida
+            send_welcome_staff_email(
+                user_email=email,
+                staff_name=full_name,
+                clinic_name=clinic.nombre,
+                role_name=role_input,
+                temp_pw=temp_pass
+            )
+
+            users_created += 1
+
+        except Exception as e:
+            errors.append(f"Error procesando a {email}: {str(e)}")
+
+    # 8. Guardar todo en la base de datos
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "created_count": users_created,
+        "errors": errors,
+        "total_rows": users_created + len(errors)
+    }), 200
+
+
+@api.route('/clinics/<int:clinic_id>/generate-code', methods=['PATCH'])
+@jwt_required()
+@roles_required(RoleEnum.CLINIC_ADMIN)
+def update_clinic_staff_code(clinic_id):
+    # Seguridad: Validar que el admin pertenece a esta clínica
+    claims = get_jwt()
+    if claims.get("clinic_id") != clinic_id:
+        return jsonify({"message": "No tienes permiso para gestionar esta sede"}), 403
+
+    clinic = Clinic.query.get(clinic_id)
+    if not clinic:
+        return jsonify({"message": "Clínica no encontrada"}), 404
+
+    # Generamos el nuevo código usando nuestra utilidad
+    new_code = generate_staff_code(clinic.id)
+
+    # Verificación de colisión (muy rara con 4 chars + ID, pero buena práctica)
+    while Clinic.query.filter_by(staff_code=new_code).first():
+        new_code = generate_staff_code(clinic.id)
+
+    clinic.staff_code = new_code
+    db.session.commit()
+
+    return jsonify({
+        "message": "Código de sede actualizado",
+        "staff_code": new_code
+    }), 200
 
 # --- NUEVOS ENDPOINTS DE TU TAREA (PARA PETS Y APPOINTMENTS) ---
 
