@@ -27,8 +27,6 @@ export default function storeReducer(store, action) {
 
     // Acción para cerrar sesión y limpiar el almacenamiento 
     case 'logout':
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
       return { 
         ...store, 
         token: null, 

@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom"; // Importamos Link
 import { useGlobalReducer } from "../hooks/useGlobalReducer";
-import toast from "react-hot-toast"; 
+import toast from "react-hot-toast";
 
 export const Login = () => {
     const { dispatch } = useGlobalReducer();
     const navigate = useNavigate();
-    
+
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState(null);
@@ -27,21 +27,25 @@ export const Login = () => {
             const data = await response.json();
 
             if (response.ok) {
-                dispatch({ 
-                    type: "login", 
-                    payload: { token: data.token, user: data.user } 
+                dispatch({
+                    type: "login",
+                    payload: { token: data.token, user: data.user }
                 });
-                
+
                 toast.success(`¡Bienvenido, ${data.user.full_name}!`);
 
-                if (data.user.role === "SUPER_ADMIN") {
-                    navigate("/admin/solicitudes");
-                } 
-                else if (data.user.must_change_password) {
+                if (data.user.must_change_password) {
+                    console.log("Cambio de contraseña obligatorio detectado");
                     navigate("/change-password");
-                } 
+                }
+                else if (data.user.role === "SUPER_ADMIN") {
+                    navigate("/admin/solicitudes");
+                }
+                else if (["CLINIC_ADMIN", "INDEPENDENT_VET"].includes(data.user.role)) {
+                    navigate("/clinic/admin");
+                }
                 else {
-                    navigate("/admin/clinicas");
+                    navigate("/");
                 }
 
             } else {
@@ -66,7 +70,7 @@ export const Login = () => {
                                 <h2 className="fw-bold text-primary">PetHealth</h2>
                                 <p className="text-muted small">Panel de Gestión Profesional</p>
                             </div>
-                            
+
                             {error && (
                                 <div className="alert alert-danger py-2 text-center small" role="alert">
                                     <i className="fas fa-exclamation-triangle me-2"></i>{error}
@@ -96,8 +100,8 @@ export const Login = () => {
                                         required
                                     />
                                 </div>
-                                <button 
-                                    type="submit" 
+                                <button
+                                    type="submit"
                                     className="btn btn-primary btn-lg w-100 fw-bold shadow-sm"
                                     disabled={loading}
                                 >
@@ -115,7 +119,7 @@ export const Login = () => {
                                 </Link>
                             </div>
                             {/* ------------------------------------------ */}
-                            
+
                         </div>
                     </div>
                 </div>

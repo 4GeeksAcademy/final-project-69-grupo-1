@@ -81,6 +81,7 @@ class ClinicRequest(db.Model):
 class Clinic(db.Model):
     __tablename__ = 'clinics'
     id = db.Column(db.Integer, primary_key=True)
+    tipo_sede = db.Column(db.String(20), nullable=False)
     nombre = db.Column(db.String(120), nullable=False)
     rif = db.Column(db.String(50), unique=True, nullable=False)
     ubicacion = db.Column(db.String(255), nullable=False)
@@ -89,23 +90,25 @@ class Clinic(db.Model):
     is_active = db.Column(db.Boolean, default=True) 
     suspension_reason = db.Column(db.String(255), nullable=True) # Motivo de suspension que hablamos antes
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    
+    staff_code = db.Column(db.String(20), unique=True, nullable=True)
     
     # Relaciones con borrado en cascada para poder eliminar clínicas
-    users = db.relationship('User', back_populates='clinic', cascade="all, delete")
+    users = db.relationship('User', back_populates='clinic', cascade="all, delete",foreign_keys='User.clinic_id')
     appointments = db.relationship('Appointment', back_populates='clinic', cascade="all, delete")
     payments = db.relationship('Payment', back_populates='clinic', cascade="all, delete")
 
     def serialize(self):
         return {
             "id": self.id,
+            "tipo_sede": self.tipo_sede,
             "nombre": self.nombre,
             "rif": self.rif,
             "ubicacion": self.ubicacion,
             "telefono": self.telefono,
             "correo": self.correo,
             "is_active": self.is_active,
-            "suspension_reason": self.suspension_reason
+            "suspension_reason": self.suspension_reason,
+            "staff_code": self.staff_code   
         }
 
 class User(db.Model):
@@ -117,10 +120,11 @@ class User(db.Model):
     role = db.Column(db.Enum(RoleEnum), default=RoleEnum.CLIENTE, nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False) # Nuevo: para vetar doctores o clientes
     clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.id'), nullable=True) 
+    staff_cod = db.Column(db.String(20), db.ForeignKey('clinics.staff_code'), nullable=True)
     must_change_password = db.Column(db.Boolean(), nullable=False, default=False)
     
     # Relaciones
-    clinic = db.relationship('Clinic', back_populates='users')
+    clinic = db.relationship('Clinic', back_populates='users',foreign_keys=[clinic_id])
     pets = db.relationship('Pet', back_populates='owner', cascade="all, delete")
     appointments_as_doctor = db.relationship('Appointment', back_populates='doctor')
     medical_records = db.relationship('MedicalRecord', back_populates='doctor')
@@ -148,7 +152,10 @@ class User(db.Model):
             "full_name": self.full_name,
             "role": self.role.value,
             "is_active": self.is_active,
-            "clinic_id": self.clinic_id
+            "must_change_password": self.must_change_password,
+            "clinic_id": self.clinic_id,
+            "clinic_name": self.clinic.nombre if self.clinic else "Sin Clínica",
+            "staff_code": self.clinic.staff_code if self.clinic else "No asignado"
         }
 
 class Pet(db.Model):

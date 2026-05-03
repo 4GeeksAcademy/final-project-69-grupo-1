@@ -159,9 +159,64 @@ export function StoreProvider({ children }) {
             return false;
         },
 
+        uploadStaffCSV: async (formData) => {
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clinics/bulk-staff-upload`, {
+                    method: "POST",
+                    headers: { "Authorization": `Bearer ${store.token}` },
+                    body: formData
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    return { success: true, created: data.created };
+                }
+            } catch (error) {
+                console.error("Error en carga masiva:", error);
+            }
+            return { success: false };
+        },
+
+        registerStaffWithCode: async (userData) => {
+            try {
+                // Asegúrate de que la URL coincida exactamente con tu @api.route del backend
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/register-with-code`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        email: userData.email,
+                        password: userData.password,
+                        first_name: userData.first_name,
+                        last_name: userData.last_name,
+                        role: userData.role,        // "VET" o "RECEPTIONIST"
+                        staff_code: userData.staff_code
+                    })
+                });
+
+                const data = await resp.json();
+
+                if (resp.ok) {
+                    // El backend devuelve 201 y un mensaje de éxito
+                    return { success: true, message: data.message };
+                } else {
+                    // El backend devuelve 400 o 404 con un mensaje de error explicativo
+                    return { success: false, message: data.message || "Error al procesar el registro" };
+                }
+
+            } catch (error) {
+                console.error("Error crítico en la conexión de registro:", error);
+                return { success: false, message: "No se pudo conectar con el servidor. Inténtalo más tarde." };
+            }
+        },
+
         logout: () => {
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
             dispatch({ type: "logout" });
         }
+
+
     };
 
     return (
