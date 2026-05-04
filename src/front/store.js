@@ -10,6 +10,8 @@ export const initialStore = () => {
     clinics: [],
     clinicRequests: [],
     staff: [],
+    doctorAppointments: [],
+    doctorPatients: []
   };
 };
 
@@ -68,6 +70,19 @@ export default function storeReducer(store, action) {
       return {
         ...store,
         clinicRequests: store.clinicRequests.filter(req => req.id !== action.payload)
+      };
+
+
+    case 'set_doctor_appointments':
+      return {
+        ...store,
+        doctorAppointments: action.payload
+      };
+
+    case 'set_doctor_patients':
+      return {
+        ...store,
+        doctorPatients: action.payload
       };
 
     case 'update_user_locally':

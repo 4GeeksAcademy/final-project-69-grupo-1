@@ -35,6 +35,8 @@ def generate_temp_password(length=12):
     return ''.join(secrets.choice(alphabet) for i in range(length))
 
 
+
+
 @api.route('/master-setup', methods=['POST'])
 def master_setup():
     master_key = os.getenv("MASTER_KEY")
@@ -711,34 +713,170 @@ def add_pet():
 @api.route('/appointments', methods=['POST'])
 @jwt_required()
 def create_appointment():
-    user_id = get_jwt_identity()
-    body = request.json
+    body = request.json or {}
 
     if not body.get("pet_id") or not body.get("date"):
         return jsonify({"msg": "Faltan datos obligatorios"}), 400
 
     try:
-        # Limpiamos el formato de la fecha que viene del input datetime-local
-        date_str = body['date'].replace('T', ' ')
         date_obj = datetime.fromisoformat(body['date'].replace('Z', '+00:00'))
     except Exception:
         return jsonify({"msg": "Formato de fecha inválido"}), 400
 
-    # Buscamos la primera clínica activa para asignar la cita
-    clinic = Clinic.query.filter_by(is_active=True).first()
-    if not clinic:
+    pet = Pet.query.get(body['pet_id'])
+    if not pet:
+        return jsonify({"msg": "Mascota no encontrada"}), 404
+
+    clinic_id = body.get('clinic_id')
+    doctor_id = body.get('doctor_id')
+
+    clinic = Clinic.query.get(clinic_id) if clinic_id else Clinic.query.filter_by(is_active=True).first()
+    if not clinic or not clinic.is_active:
         return jsonify({"msg": "No hay clínicas disponibles"}), 404
+
+    doctor = None
+    if doctor_id:
+        doctor = User.query.get(doctor_id)
+        if not doctor or doctor.role != RoleEnum.DOCTOR:
+            return jsonify({"msg": "Doctor no válido"}), 400
+        if doctor.clinic_id != clinic.id:
+            return jsonify({"msg": "El doctor debe pertenecer a la clínica seleccionada"}), 400
 
     new_appointment = Appointment(
         date_time=date_obj,
         tipo=body.get('service_type', 'Consulta'),
-        status=AppointmentStatus.PROGRAMADA,  # Estado inicial "Pendiente"
-        pet_id=body['pet_id'],
+        status=AppointmentStatus.PROGRAMADA,
+        pet_id=pet.id,
         clinic_id=clinic.id,
-        user_id=user_id
+        doctor_id=doctor.id if doctor else None
     )
 
     db.session.add(new_appointment)
     db.session.commit()
 
-    return jsonify({"msg": "Cita solicitada con éxito"}), 201
+    appointment_data = {
+        "id": new_appointment.id,
+        "date_time": new_appointment.date_time.isoformat() if new_appointment.date_time else None,
+        "status": new_appointment.status.value if new_appointment.status else None,
+        "tipo": new_appointment.tipo,
+        "clinic_id": new_appointment.clinic_id,
+        "doctor": {"id": new_appointment.doctor.id if new_appointment.doctor else None, "full_name": new_appointment.doctor.full_name if new_appointment.doctor else None},
+        "pet": {"id": new_appointment.pet.id if new_appointment.pet else None, "nombre": new_appointment.pet.nombre if new_appointment.pet else None},
+        "has_medical_record": new_appointment.record is not None
+    }
+
+    return jsonify({"msg": "Cita solicitada con éxito", "appointment": appointment_data}), 201
+
+
+@api.route('/doctor/appointments', methods=['GET'])
+@jwt_required()
+@roles_required(RoleEnum.DOCTOR)
+def get_doctor_appointments():
+    doctor_id = int(get_jwt_identity())
+    claims = get_jwt()
+    clinic_id = claims.get("clinic_id")
+
+    appointments = Appointment.query.filter_by(clinic_id=clinic_id, doctor_id=doctor_id).order_by(Appointment.date_time.asc()).all()
+    appointments_data = []
+    for appointment in appointments:
+        appointments_data.append({
+            "id": appointment.id,
+            "date_time": appointment.date_time.isoformat() if appointment.date_time else None,
+            "status": appointment.status.value if appointment.status else None,
+            "tipo": appointment.tipo,
+            "clinic_id": appointment.clinic_id,
+            "doctor": {"id": appointment.doctor.id if appointment.doctor else None, "full_name": appointment.doctor.full_name if appointment.doctor else None},
+            "pet": {
+                "id": appointment.pet.id if appointment.pet else None,
+                "nombre": appointment.pet.nombre if appointment.pet else None,
+                "especie": appointment.pet.especie if appointment.pet else None,
+                "raza": appointment.pet.raza if appointment.pet else None,
+                "edad": appointment.pet.edad if appointment.pet else None,
+                "owner_name": appointment.pet.owner.full_name if appointment.pet and appointment.pet.owner else None,
+                "owner_email": appointment.pet.owner.email if appointment.pet and appointment.pet.owner else None
+            },
+            "has_medical_record": appointment.record is not None
+        })
+    return jsonify(appointments_data), 200
+
+
+@api.route('/doctor/appointments/<int:appointment_id>/status', methods=['PATCH'])
+@jwt_required()
+@roles_required(RoleEnum.DOCTOR)
+def update_doctor_appointment_status(appointment_id):
+    doctor_id = int(get_jwt_identity())
+    appointment = Appointment.query.get(appointment_id)
+    if not appointment or appointment.doctor_id != doctor_id:
+        return jsonify({"message": "Cita no encontrada"}), 404
+
+    body = request.json or {}
+    status = body.get("status")
+    valid = {s.value for s in AppointmentStatus}
+    if status not in valid:
+        return jsonify({"message": "Estado inválido"}), 400
+
+    appointment.status = AppointmentStatus(status)
+    db.session.commit()
+    appointment_data = {"id": appointment.id, "status": appointment.status.value, "date_time": appointment.date_time.isoformat() if appointment.date_time else None}
+    return jsonify({"message": "Estado actualizado", "appointment": appointment_data}), 200
+
+
+@api.route('/doctor/patients', methods=['GET'])
+@jwt_required()
+@roles_required(RoleEnum.DOCTOR)
+def get_doctor_patients():
+    doctor_id = int(get_jwt_identity())
+    appointments = Appointment.query.filter_by(doctor_id=doctor_id).all()
+    pets = {a.pet.id: a.pet for a in appointments if a.pet}
+
+    result = []
+    for pet in pets.values():
+        history = MedicalRecord.query.filter_by(pet_id=pet.id).order_by(MedicalRecord.fecha.desc()).all()
+        result.append({
+            "id": pet.id,
+            "nombre": pet.nombre,
+            "especie": pet.especie,
+            "raza": pet.raza,
+            "edad": pet.edad,
+            "owner_name": pet.owner.full_name if pet.owner else None,
+            "owner_email": pet.owner.email if pet.owner else None,
+            "medical_history": [{"id": r.id, "fecha": r.fecha.isoformat() if r.fecha else None, "motivo": r.motivo, "diagnostico_tratamiento": r.diagnostico_tratamiento, "doctor": {"id": r.doctor.id if r.doctor else None, "full_name": r.doctor.full_name if r.doctor else None}} for r in history]
+        })
+
+    return jsonify(result), 200
+
+
+@api.route('/doctor/appointments/<int:appointment_id>/consultation', methods=['POST'])
+@jwt_required()
+@roles_required(RoleEnum.DOCTOR)
+def save_consultation(appointment_id):
+    doctor_id = int(get_jwt_identity())
+    appointment = Appointment.query.get(appointment_id)
+    if not appointment or appointment.doctor_id != doctor_id:
+        return jsonify({"message": "Cita no encontrada"}), 404
+
+    body = request.json or {}
+    motivo = body.get("motivo")
+    diagnostico = body.get("diagnostico_tratamiento")
+    if not motivo or not diagnostico:
+        return jsonify({"message": "Motivo y diagnóstico/tratamiento son obligatorios"}), 400
+
+    record = MedicalRecord.query.filter_by(appointment_id=appointment.id).first()
+    if record:
+        record.motivo = motivo
+        record.diagnostico_tratamiento = diagnostico
+    else:
+        record = MedicalRecord(
+            pet_id=appointment.pet_id,
+            doctor_id=doctor_id,
+            appointment_id=appointment.id,
+            motivo=motivo,
+            diagnostico_tratamiento=diagnostico
+        )
+        db.session.add(record)
+
+    appointment.status = AppointmentStatus.COMPLETADA
+    db.session.commit()
+
+    medical_record_data = {"id": record.id, "fecha": record.fecha.isoformat() if record.fecha else None, "motivo": record.motivo, "diagnostico_tratamiento": record.diagnostico_tratamiento}
+    return jsonify({"message": "Consulta guardada", "medical_record": medical_record_data}), 200

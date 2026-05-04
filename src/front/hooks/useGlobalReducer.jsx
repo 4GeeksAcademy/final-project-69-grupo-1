@@ -210,6 +210,75 @@ export function StoreProvider({ children }) {
             }
         },
 
+
+        getDoctorAppointments: async () => {
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/doctor/appointments`, {
+                    headers: { "Authorization": "Bearer " + store.token }
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    dispatch({ type: "set_doctor_appointments", payload: data });
+                    return { success: true, data };
+                }
+                return { success: false, message: data.message || "No se pudieron cargar las citas" };
+            } catch (error) {
+                console.error("Error cargando citas del doctor:", error);
+                return { success: false, message: "Error de conexión" };
+            }
+        },
+
+        getDoctorPatients: async () => {
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/doctor/patients`, {
+                    headers: { "Authorization": "Bearer " + store.token }
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    dispatch({ type: "set_doctor_patients", payload: data });
+                    return { success: true, data };
+                }
+                return { success: false, message: data.message || "No se pudieron cargar los pacientes" };
+            } catch (error) {
+                console.error("Error cargando pacientes del doctor:", error);
+                return { success: false, message: "Error de conexión" };
+            }
+        },
+
+        updateDoctorAppointmentStatus: async (appointmentId, status) => {
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/doctor/appointments/${appointmentId}/status`, {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + store.token
+                    },
+                    body: JSON.stringify({ status })
+                });
+                return resp.ok;
+            } catch (error) {
+                console.error("Error actualizando estado de cita:", error);
+                return false;
+            }
+        },
+
+        saveDoctorConsultation: async (appointmentId, consultation) => {
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/doctor/appointments/${appointmentId}/consultation`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + store.token
+                    },
+                    body: JSON.stringify(consultation)
+                });
+                return resp.ok;
+            } catch (error) {
+                console.error("Error guardando consulta:", error);
+                return false;
+            }
+        },
+
         logout: () => {
             localStorage.removeItem("token");
             localStorage.removeItem("user");
