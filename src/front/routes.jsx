@@ -21,6 +21,7 @@ import { BookingView } from "./pages/BookingView"; // <--- AGREGADO
 import { ClinicDashboard } from "./pages/ClinicDashboard";
 import { RegisterStaff } from "./pages/RegisterStaffNewEmployee";
 import { RegisterWithCode } from "./pages/RegisterWithCode";
+import { DoctorDashboard } from "./pages/DoctorDashboard";
 
 const PrivateGuard = ({ children, allowedRoles }) => {
   const { store } = useGlobalReducer();
@@ -77,6 +78,8 @@ export const router = createBrowserRouter(
       <Route path="admin/clinicas" element={<PrivateGuard allowedRoles={["SUPER_ADMIN"]}><AdminClinics /></PrivateGuard>} />
       <Route path="/admin/solicitudes" element={<PrivateGuard allowedRoles={["SUPER_ADMIN"]}> <SuperAdminRequests /> </PrivateGuard>} />
       <Route path="/clinic/admin" element={<PrivateGuard allowedRoles={["CLINIC_ADMIN","INDEPENDENT_VET"]}><ClinicDashboard /></PrivateGuard>} />
+      <Route path="/doctor" element={<PrivateGuard allowedRoles={["DOCTOR"]}><DoctorDashboard /></PrivateGuard>} />
+
 
       <Route path="/item2" element={<div className="container py-5 text-center"><h1>Página Item 2</h1><p>En construcción...</p></div>} />
       <Route path="/item3" element={<div className="container py-5 text-center"><h1>Página Item 3</h1><p>En construcción...</p></div>} />
