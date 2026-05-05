@@ -211,6 +211,7 @@ export function StoreProvider({ children }) {
         },
 
 
+ 
         getDoctorAppointments: async () => {
             try {
                 const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/doctor/appointments`, {
@@ -318,7 +319,7 @@ export function StoreProvider({ children }) {
                 return false;
             }
         },
-
+        
         logout: () => {
             localStorage.removeItem("token");
             localStorage.removeItem("user");

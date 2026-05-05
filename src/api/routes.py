@@ -880,8 +880,6 @@ def save_consultation(appointment_id):
 
     medical_record_data = {"id": record.id, "fecha": record.fecha.isoformat() if record.fecha else None, "motivo": record.motivo, "diagnostico_tratamiento": record.diagnostico_tratamiento}
     return jsonify({"message": "Consulta guardada", "medical_record": medical_record_data}), 200
-
-
 @api.route('/doctor/patients', methods=['POST'])
 @jwt_required()
 @roles_required(RoleEnum.DOCTOR, RoleEnum.INDEPENDENT_VET)
@@ -966,3 +964,6 @@ def create_doctor_appointment():
     db.session.add(appointment)
     db.session.commit()
     return jsonify({"message": "Cita creada", "id": appointment.id}), 201
+src/front/hooks/useGlobalReducer.jsx
+
+
