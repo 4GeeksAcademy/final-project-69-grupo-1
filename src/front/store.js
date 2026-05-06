@@ -15,65 +15,82 @@ export const initialStore = () => {
 
 export default function storeReducer(store, action) {
   switch (action.type) {
-    // Acción para iniciar sesión y persistir el token JWT 
-    case 'login':
+    // Acción para iniciar sesión y persistir el token JWT
+    case "login":
       localStorage.setItem("token", action.payload.token);
       localStorage.setItem("user", JSON.stringify(action.payload.user));
-      return { 
-        ...store, 
-        token: action.payload.token, 
-        user: action.payload.user 
-      };
-
-    // Acción para cerrar sesión y limpiar el almacenamiento 
-    case 'logout':
-      return { 
-        ...store, 
-        token: null, 
-        user: null 
-      };
-
-    case 'set_staff':
-      return { 
-        ...store, 
-        staff: action.payload 
-      };
-
-    case 'update_staff_member_locally':
-      const updatedStaff = store.staff.map(member => 
-        member.id === action.payload.id ? { ...member, is_active: action.payload.is_active } : member);
       return {
         ...store,
-        staff: updatedStaff
-      };  
-
-    case 'set_clinics':
-      return { 
-        ...store, 
-        clinics: action.payload 
+        token: action.payload.token,
+        user: action.payload.user,
       };
 
-    case 'update_clinic':
+    // Acción para cerrar sesión y limpiar el almacenamiento
+    case "logout":
       return {
         ...store,
-        clinics: store.clinics.map(clinic => 
-          clinic.id === action.payload.id ? action.payload : clinic)
-      };
-      
-    case 'set_clinic_requests':
-      return { ...store, clinicRequests: action.payload
+        token: null,
+        user: null,
       };
 
-    case 'remove_clinic_request':
+    case "set_staff":
       return {
         ...store,
-        clinicRequests: store.clinicRequests.filter(req => req.id !== action.payload)
+        staff: action.payload,
       };
 
-    case 'update_user_locally':
+    case "update_staff_member_locally":
+      const updatedStaff = store.staff.map((member) =>
+        member.id === action.payload.id
+          ? { ...member, is_active: action.payload.is_active }
+          : member,
+      );
+      return {
+        ...store,
+        staff: updatedStaff,
+      };
+
+    case "set_clinics":
+      return {
+        ...store,
+        clinics: action.payload,
+      };
+
+    case "update_clinic":
+      return {
+        ...store,
+        clinics: store.clinics.map((clinic) =>
+          clinic.id === action.payload.id ? action.payload : clinic,
+        ),
+      };
+
+    case "set_clinic_requests":
+      return { ...store, clinicRequests: action.payload };
+
+    case "remove_clinic_request":
+      return {
+        ...store,
+        clinicRequests: store.clinicRequests.filter(
+          (req) => req.id !== action.payload,
+        ),
+      };
+
+    case "update_user_locally":
       const updatedUser = { ...store.user, ...action.payload };
       localStorage.setItem("user", JSON.stringify(updatedUser));
-      return { ...store, user: updatedUser 
+      return { ...store, user: updatedUser };
+
+    case "add_payment":
+      return { ...store, payments: [...store.payments, action.payload] };
+
+    case "update_appointment_status":
+      return {
+        ...store,
+        appointments: store.appointments.map((app) =>
+          app.id === action.payload.id
+            ? { ...app, status: action.payload.status }
+            : app,
+        ),
       };
 
     default:

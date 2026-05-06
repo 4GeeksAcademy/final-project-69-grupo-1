@@ -9,3 +9,18 @@
 .container {
   flex: 1;
 }
+
+/*@media print {
+    /* Oculta todo menos el área del QR al imprimir */
+    /*body * { visibility: hidden; }
+    .card-header, .card-body, .card-body .bg-light, .card-body svg { 
+        visibility: visible; 
+        position: absolute;
+        left: 0; top: 0;
+    }
+}
+
+/*.hover-up:hover {
+    transform: translateY(-3px);
+    transition: all 0.3s ease;
+}

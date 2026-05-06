@@ -291,6 +291,65 @@ def reject_request(request_id):
 
 # COMIENZO DE LOS ENDPOINTS PARA CLÍNICAS
 
+@api.route('/clinics/<int:clinic_id>/public', methods=['GET'])
+def get_clinic_public_info(clinic_id):
+    clinic = Clinic.query.get(clinic_id)
+    if not clinic:
+        return jsonify({"message": "Clínica no encontrada"}), 404
+    
+    # Retornamos solo datos básicos comerciales
+    return jsonify({
+        "id": clinic.id,
+        "name": clinic.nombre,
+        "address": clinic.ubicacion,
+    }), 200
+
+@api.route('/register-client', methods=['POST'])
+def register_client():
+    data = request.json
+    
+    # 1. Extraer datos del JSON
+    full_name = data.get("full_name")
+    email = data.get("email")
+    password = data.get("password")
+    clinic_id = data.get("clinic_id")
+
+    # 2. Validaciones básicas
+    if not email or not password or not full_name:
+        return jsonify({"message": "Todos los campos son obligatorios"}), 400
+
+    # 3. Verificar si el usuario ya existe
+    user_exists = User.query.filter_by(email=email).first()
+    if user_exists:
+        return jsonify({"message": "El correo electrónico ya está registrado"}), 400
+
+    try:
+        # 4. Crear el nuevo usuario con rol de CLIENTE
+        new_client = User(
+            full_name=full_name,
+            email=email,
+            password=generate_password_hash(password), 
+            role=RoleEnum.CLIENTE, 
+            clinic_id=clinic_id, 
+            is_active=True,       
+            must_change_password=False
+        )
+
+        db.session.add(new_client)
+        db.session.commit()
+
+        return jsonify({
+            "message": "Cliente registrado exitosamente",
+            "client": {
+                "id": new_client.id,
+                "email": new_client.email,
+                "clinic_id": new_client.clinic_id
+            }
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": "Error interno del servidor", "error": str(e)}), 500
 
 @api.route('/clinics', methods=['GET'])
 @jwt_required()
@@ -453,26 +512,26 @@ def validate_invite():
         email = decoded.get("sub")
 
         clinic = Clinic.query.get(clinic_id)
-        
+
         if clinic is None:
             return jsonify({"msg": f"Error: La clínica con ID {clinic_id} no existe"}), 404
 
         return jsonify({
             "email": email,
-            "clinic_name": clinic.nombre, 
+            "clinic_name": clinic.nombre,
             "role": role
         }), 200
     except Exception as e:
         print(f"Error decodificando: {str(e)}")
         return jsonify({"msg": "Token inválido o expirado"}), 401
-    
+
+
 @api.route('/clinic/register-invited', methods=['POST'])
 def register_invited_staff():
     data = request.json
     token = data.get("token")
     password = data.get("password")
     full_name = data.get("full_name")
-    
 
     if not all([token, password, full_name]):
         return jsonify({"msg": "Faltan campos obligatorios"}), 400
@@ -480,12 +539,12 @@ def register_invited_staff():
     try:
         # 1. Decodificar el token
         decoded = decode_token(token)
-        
+
         # CAMBIO CRÍTICO: Accedemos directamente a las llaves (iat, sub, clinic_id, role están al mismo nivel)
         email = decoded.get("sub")
         role = decoded.get("role")
         clinic_id = decoded.get("clinic_id")
-        
+
         # Validación de seguridad: Si no hay clinic_id en el token, algo está mal
         if clinic_id is None:
             return jsonify({"msg": "El link no contiene información de la sede"}), 400
@@ -501,9 +560,9 @@ def register_invited_staff():
             password=generate_password_hash(password),
             full_name=full_name,
             role=role,        # Viene del token (ej: 'RECEPTIONIST')
-            clinic_id=clinic_id, # Viene del token (ej: 1)
+            clinic_id=clinic_id,  # Viene del token (ej: 1)
             is_active=True,
-            must_change_password=False 
+            must_change_password=False
         )
 
         db.session.add(new_staff)
@@ -515,6 +574,7 @@ def register_invited_staff():
         # IMPORTANTE: Mira tu terminal de Flask, aquí saldrá el error real si esto falla
         print(f"DEBUG - ERROR EN REGISTRO: {str(e)}")
         return jsonify({"msg": f"Error al guardar: {str(e)}"}), 400
+
 
 @api.route('/register-with-code', methods=['POST'])
 def register_staff():
@@ -555,6 +615,7 @@ def register_staff():
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": "Error interno al procesar el registro", "error": str(e)}), 500
+
 
 @api.route('/clinics/bulk-staff-upload', methods=['POST'])
 @jwt_required()
@@ -597,7 +658,8 @@ def bulk_staff_upload():
         try:
             # Validaciones básicas de datos
             if not email or not full_name or not role_input:
-                errors.append(f"Fila incompleta para {email or 'desconocido'}. Saltando.")
+                errors.append(
+                    f"Fila incompleta para {email or 'desconocido'}. Saltando.")
                 continue
 
             # Validar si el usuario ya existe en el sistema
@@ -607,7 +669,8 @@ def bulk_staff_upload():
 
             # Validar si el rol es permitido para esta sede
             if role_input not in allowed_roles:
-                errors.append(f"Rol '{role_input}' no permitido para esta sede.")
+                errors.append(
+                    f"Rol '{role_input}' no permitido para esta sede.")
                 continue
 
             # 6. Crear Usuario con Contraseña Temporal
@@ -621,9 +684,9 @@ def bulk_staff_upload():
                 must_change_password=True  # Obligatorio para staff nuevo
             )
             new_user.set_password(temp_pass)
-            
+
             db.session.add(new_user)
-            db.session.flush() # Flush para asegurar que no hay errores de BD antes del correo
+            db.session.flush()  # Flush para asegurar que no hay errores de BD antes del correo
 
             # 7. Disparar Correo de Bienvenida
             send_welcome_staff_email(
@@ -742,3 +805,58 @@ def create_appointment():
     db.session.commit()
 
     return jsonify({"msg": "Cita solicitada con éxito"}), 201
+
+
+@api.route('/reception/appointments', methods=['GET'])
+@jwt_required()
+@roles_required(RoleEnum.RECEPTIONIST, RoleEnum.CLINIC_ADMIN, RoleEnum.INDEPENDENT_VET)
+def get_clinic_appointments():
+    # Obtenemos el clinic_id desde el token JWT
+    claims = get_jwt()
+    clinic_id = claims.get("clinic_id")
+
+    if not clinic_id:
+        return jsonify({"message": "Usuario no asociado a una clínica"}), 403
+
+    # Buscamos las citas de hoy (puedes añadir filtros de fecha luego)
+    appointments = Appointment.query.filter_by(clinic_id=clinic_id).all()
+
+    return jsonify([app.serialize() for app in appointments]), 200
+
+@api.route('/payments', methods=['POST'])
+@jwt_required()
+@roles_required(RoleEnum.RECEPTIONIST, RoleEnum.CLINIC_ADMIN, RoleEnum.INDEPENDENT_VET)
+def register_payment():
+    data = request.json
+    appointment_id = data.get("appointment_id")
+
+    # 1. Validar existencia de la cita
+    appointment = Appointment.query.get(appointment_id)
+    if not appointment:
+        return jsonify({"message": "Cita no encontrada"}), 404
+
+    # 2. Registrar el pago y cerrar la cita
+    try:
+        new_payment = Payment(
+            appointment_id=appointment_id,
+            monto=data.get("monto"),
+            # Efectivo, Punto, Zelle, etc [cite: 144]
+            metodo_pago=data.get("metodo_pago"),
+            transaction_id=data.get("transaction_id"),
+            clinic_id=appointment.clinic_id
+        )
+
+        # Cambio automático de estado
+        appointment.status = "Completed"
+
+        db.session.add(new_payment)
+        db.session.commit()
+
+        return jsonify({
+            "message": "Pago registrado y cita finalizada",
+            "payment": new_payment.serialize()
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Error al procesar el pago: {str(e)}"}), 500
