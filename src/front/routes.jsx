@@ -21,6 +21,9 @@ import { BookingView } from "./pages/BookingView"; // <--- AGREGADO
 import { ClinicDashboard } from "./pages/ClinicDashboard";
 import { RegisterStaff } from "./pages/RegisterStaffNewEmployee";
 import { RegisterWithCode } from "./pages/RegisterWithCode";
+import { ReceptionistDashboard } from "./pages/ReceptionistDashboard";
+import { ClinicLanding } from "./pages/ClinicLanding";
+import { RegisterClient } from "./pages/RegisterClient";
 
 const PrivateGuard = ({ children, allowedRoles }) => {
   const { store } = useGlobalReducer();
@@ -53,9 +56,12 @@ export const router = createBrowserRouter(
       {/* RUTAS PÚBLICAS */}
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/clinic/:clinic_id" element={<ClinicLanding />} />
+      <Route path="/registro-cliente" element={<RegisterClient />} />
       <Route path="/registro-sede" element={<RegistrationLanding />} />
       <Route path="/registro-empleado" element={<RegisterStaff />} />
-      <Route path="register-staff" element={<RegisterWithCode />} />
+      <Route path="/register-staff" element={<RegisterWithCode />} />
+      <Route path="/reception/dashboard" element={<ReceptionistDashboard />} />
       <Route path="/invoice" element={<Invoice />} />
 
       {/* RUTA DE MIS MASCOTAS (PÚBLICA para desarrollo) */}

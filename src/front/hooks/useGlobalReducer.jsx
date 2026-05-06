@@ -210,6 +210,72 @@ export function StoreProvider({ children }) {
             }
         },
 
+        loadReceptionAppointments: async () => {
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/reception/appointments`, {
+                    headers: { "Authorization": "Bearer " + store.token }
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    dispatch({ type: "set_appointments", payload: data });
+                }
+            } catch (error) {
+                console.error("Error cargando citas:", error);
+            }
+        },
+
+        registerPayment: async (paymentData) => {
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/payments`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + store.token
+                    },
+                    body: JSON.stringify(paymentData)
+                });
+
+                const data = await resp.json();
+                if (resp.ok) {
+                    dispatch({ type: "add_payment", payload: data.payment });
+                    dispatch({
+                        type: "update_appointment_status",
+                        payload: { id: paymentData.appointment_id, status: "Completed" }
+                    });
+                    return { success: true };
+                }
+                return { success: false, message: data.message };
+            } catch (error) {
+                return { success: false, message: "Error de conexión" };
+            }
+        },
+
+        registerClient: async (clientData) => {
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/register-client`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        full_name: clientData.full_name,
+                        email: clientData.email,
+                        password: clientData.password,
+                        clinic_id: clientData.clinic_id // Este es el campo clave
+                    })
+                });
+
+                if (resp.ok) {
+                    return true;
+                } else {
+                    const data = await resp.json();
+                    console.error("Error de registro:", data.message);
+                    return false;
+                }
+            } catch (error) {
+                console.error("Error en la conexión:", error);
+                return false;
+            }
+        },
+
         logout: () => {
             localStorage.removeItem("token");
             localStorage.removeItem("user");
