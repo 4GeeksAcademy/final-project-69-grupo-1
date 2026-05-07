@@ -10,6 +10,8 @@ export const initialStore = () => {
     clinics: [],
     clinicRequests: [],
     staff: [],
+    userPets: [],
+    userAppointments: [],
   };
 };
 
@@ -91,6 +93,17 @@ export default function storeReducer(store, action) {
             ? { ...app, status: action.payload.status }
             : app,
         ),
+      };
+
+    case "set_user_pets":
+      return { 
+        ...store, 
+        userPets: action.payload 
+      };
+    case "set_user_appointments":
+      return { 
+        ...store, 
+        userAppointments: action.payload 
       };
 
     default:
