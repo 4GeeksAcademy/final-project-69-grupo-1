@@ -44,6 +44,9 @@ export const Login = () => {
                 else if (["CLINIC_ADMIN", "INDEPENDENT_VET"].includes(data.user.role)) {
                     navigate("/clinic/admin");
                 }
+                else if (data.user.role === "CLIENTE") {
+                    navigate("/client/dashboard");
+                }
                 else {
                     navigate("/");
                 }

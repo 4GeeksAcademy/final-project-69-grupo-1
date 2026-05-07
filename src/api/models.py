@@ -176,6 +176,8 @@ class Pet(db.Model):
         return {
             "id": self.id,
             "nombre": self.nombre,
+            "raza": self.raza,
+            "edad": self.edad,
             "especie": self.especie,
             "owner_email": self.owner.email if self.owner else None
         }
