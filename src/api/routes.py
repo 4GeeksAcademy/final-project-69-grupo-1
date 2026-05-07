@@ -291,12 +291,13 @@ def reject_request(request_id):
 
 # COMIENZO DE LOS ENDPOINTS PARA CLÍNICAS
 
+
 @api.route('/clinics/<int:clinic_id>/public', methods=['GET'])
 def get_clinic_public_info(clinic_id):
     clinic = Clinic.query.get(clinic_id)
     if not clinic:
         return jsonify({"message": "Clínica no encontrada"}), 404
-    
+
     # Retornamos solo datos básicos comerciales
     return jsonify({
         "id": clinic.id,
@@ -304,10 +305,11 @@ def get_clinic_public_info(clinic_id):
         "address": clinic.ubicacion,
     }), 200
 
+
 @api.route('/register-client', methods=['POST'])
 def register_client():
     data = request.json
-    
+
     # 1. Extraer datos del JSON
     full_name = data.get("full_name")
     email = data.get("email")
@@ -328,10 +330,10 @@ def register_client():
         new_client = User(
             full_name=full_name,
             email=email,
-            password=generate_password_hash(password), 
-            role=RoleEnum.CLIENTE, 
-            clinic_id=clinic_id, 
-            is_active=True,       
+            password=generate_password_hash(password),
+            role=RoleEnum.CLIENTE,
+            clinic_id=clinic_id,
+            is_active=True,
             must_change_password=False
         )
 
@@ -350,6 +352,7 @@ def register_client():
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": "Error interno del servidor", "error": str(e)}), 500
+
 
 @api.route('/clinics', methods=['GET'])
 @jwt_required()
@@ -744,31 +747,43 @@ def update_clinic_staff_code(clinic_id):
 # --- NUEVOS ENDPOINTS DE TU TAREA (PARA PETS Y APPOINTMENTS) ---
 
 
-@api.route('/users/me/pets', methods=['GET'])
+@api.route('/pets', methods=['GET'])
 @jwt_required()
-def get_my_pets():
+def get_user_pets():
+    # El identity del token es el ID del usuario
     user_id = get_jwt_identity()
+    
+    # Filtramos mascotas por el owner_id
     pets = Pet.query.filter_by(user_id=user_id).all()
+    
+    # Retornamos la lista serializada
     return jsonify([pet.serialize() for pet in pets]), 200
 
 
 @api.route('/pets', methods=['POST'])
 @jwt_required()
+@roles_required(RoleEnum.CLIENTE)
 def add_pet():
     user_id = get_jwt_identity()
-    body = request.json
-    if not body.get("nombre"):
-        return jsonify({"msg": "Nombre obligatorio"}), 400
+    data = request.json
 
-    new_pet = Pet(
-        nombre=body['nombre'],
-        especie=body.get('especie', 'Otro'),
-        raza=body.get('raza', 'Desconocida'),
-        user_id=user_id
-    )
-    db.session.add(new_pet)
-    db.session.commit()
-    return jsonify(new_pet.serialize()), 201
+    if not data.get("name") or not data.get("specie"):
+        return jsonify({"message": "Nombre y especie son obligatorios"}), 400
+
+    try:
+        new_pet = Pet(
+            nombre=data.get("name"),
+            especie=data.get("specie"),
+            raza=data.get("breed"),
+            edad=data.get("age"),
+            user_id=user_id
+        )
+        db.session.add(new_pet)
+        db.session.commit()
+        return jsonify({"message": "Mascota registrada correctamente"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": "Error al guardar", "error": str(e)}), 500
 
 
 @api.route('/appointments', methods=['POST'])
@@ -822,6 +837,7 @@ def get_clinic_appointments():
     appointments = Appointment.query.filter_by(clinic_id=clinic_id).all()
 
     return jsonify([app.serialize() for app in appointments]), 200
+
 
 @api.route('/payments', methods=['POST'])
 @jwt_required()

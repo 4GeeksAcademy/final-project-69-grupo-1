@@ -276,6 +276,65 @@ export function StoreProvider({ children }) {
             }
         },
 
+        addPet: async (petData) => {
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/pets`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${localStorage.getItem("token")}`
+                    },
+                    body: JSON.stringify(petData)
+                });
+
+                if (resp.ok) {
+
+                    return true;
+                }
+                return false;
+            } catch (error) {
+                console.error("Error al registrar mascota:", error);
+                return false;
+            }
+        },
+
+        getUserPets: async () => {
+            // Usamos el token directamente del localStorage para asegurar que esté presente
+            const token = store.token || localStorage.getItem("token");
+
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/pets`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
+                    }
+                });
+
+                if (resp.ok) {
+                    const data = await resp.json();
+                    console.log("Mascotas recibidas del backend:", data); // <--- AGREGA ESTE LOG
+                    dispatch({ type: "set_user_pets", payload: data });
+                } else {
+                    console.error("Error en la respuesta del backend:", resp.status);
+                }
+            } catch (error) {
+                console.error("Error cargando mascotas:", error);
+            }
+        },
+
+        getUserAppointments: async () => {
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/appointments/me`, {
+                    headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    dispatch({ type: "set_user_appointments", payload: data });
+                }
+            } catch (error) { console.error("Error cargando citas:", error); }
+        },
+
         logout: () => {
             localStorage.removeItem("token");
             localStorage.removeItem("user");

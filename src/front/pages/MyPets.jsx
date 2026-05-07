@@ -1,143 +1,120 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useGlobalReducer } from "../hooks/useGlobalReducer";
 
 export const MyPets = () => {
-    const [pets, setPets] = useState([]);
-    const [newPet, setNewPet] = useState({ nombre: "", especie: "", raza: "" });
-    const [editPet, setEditPet] = useState(null);
+    const { actions } = useGlobalReducer();
+    const navigate = useNavigate();
+    
+    const [petData, setPetData] = useState({
+        name: "",
+        specie: "Canino",
+        breed: "",
+        age: ""
+    });
 
-    const BACKEND_URL = "https://symmetrical-tribble-4rgjv9jxxw2q7x4-3001.app.github.dev";
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
 
-    const getPets = async () => {
-        const token = localStorage.getItem("token") || ""; 
-        try {
-            const response = await fetch(`${BACKEND_URL}/api/users/me/pets`, {
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                setPets(data);
-            }
-        } catch (error) {
-            console.error("Error al cargar mascotas:", error);
+    const handleChange = (e) => {
+        setPetData({ ...petData, [e.target.name]: e.target.value });
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError("");
+        setLoading(true);
+
+        const success = await actions.addPet(petData);
+        setLoading(false);
+
+        if (success) {
+            // Volvemos al dashboard para ver la nueva mascota en la lista
+            navigate("/client/dashboard");
+        } else {
+            setError("No se pudo registrar la mascota. Intenta de nuevo.");
         }
-    };
-
-    useEffect(() => { getPets(); }, []);
-
-    const handleAction = async (method, endpoint, body, isEdit = false) => {
-        const token = localStorage.getItem("token") || "";
-        try {
-            const response = await fetch(`${BACKEND_URL}${endpoint}`, {
-                method: method,
-                headers: { 
-                    "Content-Type": "application/json", 
-                    "Authorization": `Bearer ${token}` 
-                },
-                body: JSON.stringify(body)
-            });
-            if (response.ok) {
-                await getPets();
-                if (!isEdit) setNewPet({ nombre: "", especie: "", raza: "" });
-                alert(isEdit ? "¡Mascota actualizada!" : "¡Mascota agregada!");
-            }
-        } catch (error) { console.error(error); }
-    };
-
-    // NUEVA FUNCIÓN: ELIMINAR
-    const handleDelete = async (id) => {
-        if (!confirm("¿Estás seguro de que quieres eliminar esta mascota?")) return;
-        const token = localStorage.getItem("token") || "";
-        try {
-            const response = await fetch(`${BACKEND_URL}/api/pets/${id}`, {
-                method: "DELETE",
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-            if (response.ok) {
-                await getPets();
-                alert("Mascota eliminada");
-            }
-        } catch (error) { console.error(error); }
     };
 
     return (
         <div className="container py-5">
-            <div className="d-flex justify-content-between align-items-center mb-5">
-                <h2 className="text-primary fw-bold">🐾 Mis Mascotas</h2>
-                <button className="btn btn-warning rounded-pill px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#addPetModal">
-                    <i className="fa-solid fa-plus me-2"></i>Nueva Mascota
-                </button>
-            </div>
+            <div className="row justify-content-center">
+                <div className="col-md-6">
+                    <div className="card border-0 shadow-sm rounded-4">
+                        <div className="card-body p-5">
+                            <div className="text-center mb-4">
+                                <div className="bg-primary-subtle d-inline-block p-3 rounded-circle mb-3">
+                                    <i className="fas fa-paw fa-2x text-primary"></i>
+                                </div>
+                                <h2 className="fw-bold">Nueva Mascota</h2>
+                                <p className="text-muted">Cuéntanos un poco sobre tu mejor amigo.</p>
+                            </div>
 
-            <div className="row">
-                {pets.length === 0 ? (
-                    <p className="text-muted text-center">No hay mascotas registradas.</p>
-                ) : (
-                    pets.map(pet => (
-                        <div key={pet.id} className="col-md-4 mb-4">
-                            <div className="card shadow-sm border-0 border-start border-primary border-5 p-3">
-                                <div className="card-body">
-                                    <div className="d-flex justify-content-between align-items-start">
-                                        <div>
-                                            <h5 className="fw-bold mb-0">{pet.nombre}</h5>
-                                            <small className="text-muted">{pet.especie} - {pet.raza}</small>
-                                        </div>
-                                        {/* BOTÓN DE ELIMINAR */}
-                                        <button className="btn btn-outline-danger btn-sm border-0" onClick={() => handleDelete(pet.id)}>
-                                            <i className="fa-solid fa-trash"></i>
-                                        </button>
+                            {error && <div className="alert alert-danger p-2 small">{error}</div>}
+
+                            <form onSubmit={handleSubmit}>
+                                <div className="mb-3">
+                                    <label className="form-label small fw-bold">Nombre de la Mascota</label>
+                                    <input 
+                                        type="text" name="name" required
+                                        className="form-control bg-light border-0 px-3 py-2" 
+                                        placeholder="Ej: Max, Luna..."
+                                        onChange={handleChange}
+                                    />
+                                </div>
+
+                                <div className="mb-3">
+                                    <label className="form-label small fw-bold">Especie</label>
+                                    <select 
+                                        name="specie" 
+                                        className="form-select bg-light border-0 px-3 py-2"
+                                        onChange={handleChange}
+                                    >
+                                        <option value="Canino">🐶 Canino (Perro)</option>
+                                        <option value="Felino">🐱 Felino (Gato)</option>
+                                        <option value="Otro">🐰 Otro</option>
+                                    </select>
+                                </div>
+
+                                <div className="row">
+                                    <div className="col-md-8 mb-3">
+                                        <label className="form-label small fw-bold">Raza / Variedad</label>
+                                        <input 
+                                            type="text" name="breed" required
+                                            className="form-control bg-light border-0 px-3 py-2" 
+                                            placeholder="Ej: Golden Retriever"
+                                            onChange={handleChange}
+                                        />
                                     </div>
-                                    <div className="mt-3">
-                                        <button 
-                                            className="btn btn-sm btn-outline-primary w-100 rounded-pill" 
-                                            data-bs-toggle="modal" 
-                                            data-bs-target="#editPetModal" 
-                                            onClick={() => setEditPet(pet)}
-                                        >
-                                            <i className="fa-solid fa-pencil me-2"></i>Editar
-                                        </button>
+                                    <div className="col-md-4 mb-3">
+                                        <label className="form-label small fw-bold">Edad (años)</label>
+                                        <input 
+                                            type="number" name="age" required min="0" max="30"
+                                            className="form-control bg-light border-0 px-3 py-2" 
+                                            placeholder="0"
+                                            onChange={handleChange}
+                                        />
                                     </div>
                                 </div>
-                            </div>
+
+                                <div className="mt-4 d-flex gap-2">
+                                    <button 
+                                        type="button" 
+                                        className="btn btn-light w-100 fw-bold py-2 border"
+                                        onClick={() => navigate("/client/dashboard")}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button 
+                                        type="submit" 
+                                        className="btn btn-primary w-100 fw-bold py-2 shadow-sm"
+                                        disabled={loading}
+                                    >
+                                        {loading ? <span className="spinner-border spinner-border-sm me-2"></span> : "Guardar Mascota"}
+                                    </button>
+                                </div>
+                            </form>
                         </div>
-                    ))
-                )}
-            </div>
-
-            {/* MODAL: AGREGAR */}
-            <div className="modal fade" id="addPetModal" tabIndex="-1">
-                <div className="modal-dialog modal-dialog-centered">
-                    <div className="modal-content border-0 p-4 shadow">
-                        <h4 className="text-primary fw-bold mb-4">Agregar Mascota</h4>
-                        <input type="text" className="form-control mb-2" placeholder="Nombre" value={newPet.nombre} onChange={e => setNewPet({...newPet, nombre: e.target.value})} />
-                        <select className="form-select mb-2" value={newPet.especie} onChange={e => setNewPet({...newPet, especie: e.target.value})}>
-                            <option value="">Tipo...</option>
-                            <option value="Perro">Perro</option>
-                            <option value="Gato">Gato</option>
-                            <option value="Otro">Otro</option>
-                        </select>
-                        <input type="text" className="form-control mb-3" placeholder="Raza" value={newPet.raza} onChange={e => setNewPet({...newPet, raza: e.target.value})} />
-                        <button className="btn btn-primary w-100 rounded-pill" onClick={() => handleAction("POST", "/api/pets", newPet)} data-bs-dismiss="modal">Guardar</button>
-                    </div>
-                </div>
-            </div>
-
-            {/* MODAL: EDITAR */}
-            <div className="modal fade" id="editPetModal" tabIndex="-1">
-                <div className="modal-dialog modal-dialog-centered">
-                    <div className="modal-content border-0 p-4 shadow">
-                        <h4 className="text-primary fw-bold mb-4">Editar Mascota</h4>
-                        {editPet && (
-                            <>
-                                <input type="text" className="form-control mb-2" value={editPet.nombre} onChange={e => setEditPet({...editPet, nombre: e.target.value})} />
-                                <select className="form-select mb-2" value={editPet.especie} onChange={e => setEditPet({...editPet, especie: e.target.value})}>
-                                    <option value="Perro">Perro</option>
-                                    <option value="Gato">Gato</option>
-                                    <option value="Otro">Otro</option>
-                                </select>
-                                <input type="text" className="form-control mb-3" value={editPet.raza} onChange={e => setEditPet({...editPet, raza: e.target.value})} />
-                                <button className="btn btn-success w-100 rounded-pill" onClick={() => handleAction("PUT", `/api/pets/${editPet.id}`, editPet, true)} data-bs-dismiss="modal">Actualizar</button>
-                            </>
-                        )}
                     </div>
                 </div>
             </div>
