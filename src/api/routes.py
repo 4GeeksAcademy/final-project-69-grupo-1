@@ -860,3 +860,116 @@ def register_payment():
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": f"Error al procesar el pago: {str(e)}"}), 500
+    
+
+# ENDPOINTS DEL DOCTOR (Historias 36, 37, 38)
+
+
+#metodo get para ver las citas
+@api.route('/doctor/appointments', methods=['GET'])
+@jwt_required()
+@roles_required(RoleEnum.DOCTOR, RoleEnum.INDEPENDENT_VET)
+def get_doctor_appointments():
+    claims = get_jwt()
+    clinic_id = claims.get("clinic_id")
+
+    if not clinic_id:
+        return jsonify({"message": "No estás asociado a ninguna sede médica."}), 400
+
+    # Buscamos todas las citas de esa sede
+    appointments = Appointment.query.filter_by(
+        clinic_id=clinic_id
+    ).order_by(Appointment.date_time.asc()).all()
+
+    
+    # armamos una respuesta personalizada para la vista del doctor.
+    response = []
+    for app in appointments:
+        response.append({
+            "id": app.id,
+            "fecha_hora": app.date_time.isoformat() if app.date_time else None,
+            "estado": app.status.value,
+            "tipo": app.tipo,
+            "mascota": {
+                "id": app.pet.id,
+                "nombre": app.pet.nombre,
+                "especie": app.pet.especie,
+                "raza": app.pet.raza,
+                "dueno": app.pet.owner.full_name
+            }
+        })
+
+    return jsonify(response), 200
+
+#metodo patch para atencion
+@api.route('/doctor/appointments/<int:appointment_id>/status', methods=['PATCH'])
+@jwt_required()
+@roles_required(RoleEnum.DOCTOR, RoleEnum.INDEPENDENT_VET)
+def update_appointment_status(appointment_id):
+    appointment = Appointment.query.get(appointment_id)
+    if not appointment:
+        return jsonify({"message": "Cita no encontrada"}), 404
+
+    # Validar que el doctor pertenece a la misma sede de la cita
+    claims = get_jwt()
+    if appointment.clinic_id != claims.get("clinic_id"):
+        return jsonify({"message": "No tienes acceso a esta cita."}), 403
+
+    data = request.json
+    new_status = data.get("status")
+
+    # Validamos que el estado enviado sea uno de nuestro Enum
+    try:
+        status_enum = AppointmentStatus(new_status)
+    except ValueError:
+        return jsonify({"message": "Estado inválido."}), 400
+
+    appointment.status = status_enum
+    db.session.commit()
+
+    return jsonify({"message": f"Estado actualizado a {new_status}"}), 200
+
+#metodo post para registrar el diagnostico
+@api.route('/doctor/appointments/<int:appointment_id>/medical-record', methods=['POST'])
+@jwt_required()
+@roles_required(RoleEnum.DOCTOR, RoleEnum.INDEPENDENT_VET)
+def create_medical_record(appointment_id):
+    current_user_id = int(get_jwt_identity())
+    claims = get_jwt()
+    appointment = Appointment.query.get(appointment_id)
+
+    if not appointment:
+        return jsonify({"message": "Cita no encontrada"}), 404
+
+    # Validar sede
+    if appointment.clinic_id != claims.get("clinic_id"):
+        return jsonify({"message": "No tienes acceso a esta cita."}), 403
+
+    body = request.get_json(silent=True) or {}
+    diagnostico = body.get("diagnostico")
+    tratamiento = body.get("tratamiento")
+    motivo = body.get("motivo", "Consulta general")
+
+    if not diagnostico or not tratamiento:
+        return jsonify({"message": "Diagnóstico y tratamiento son obligatorios"}), 400
+
+    if appointment.record:
+        return jsonify({"message": "La cita ya tiene una historia clínica registrada"}), 409
+
+    # Asociamos al doctor, finalizamos la cita y creamos el récord
+    appointment.doctor_id = current_user_id
+    appointment.status = AppointmentStatus.COMPLETADA
+
+    new_record = MedicalRecord(
+        motivo=motivo,
+        # Guardamos todo en el campo de texto libre que definimos para el MVP
+        diagnostico_tratamiento=f"Diagnóstico: {diagnostico}\nTratamiento: {tratamiento}",
+        pet_id=appointment.pet_id,
+        doctor_id=current_user_id,
+        appointment_id=appointment.id
+    )
+
+    db.session.add(new_record)
+    db.session.commit()
+
+    return jsonify({"message": "Historia médica guardada con éxito."}), 201

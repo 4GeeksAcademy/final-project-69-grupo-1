@@ -280,7 +280,85 @@ export function StoreProvider({ children }) {
             localStorage.removeItem("token");
             localStorage.removeItem("user");
             dispatch({ type: "logout" });
-        }
+        },
+
+        // --- ACCIONES DEL DOCTOR ---
+
+        // Para la Historia 37
+        getDoctorAppointments: async () => {
+            try {
+                const resp = await fetch(import.meta.env.VITE_BACKEND_URL + "/api/doctor/appointments", {
+                    headers: { "Authorization": "Bearer " + store.token }
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    dispatch({ type: "set_appointments", payload: data });
+                    return true;
+                }
+            } catch (error) {
+                console.error("Error obteniendo citas:", error);
+            }
+            return false;
+        },
+
+        // Para la Historia 38
+        markAppointmentAsInAttention: async (appointmentId) => {
+            try {
+                const resp = await fetch(import.meta.env.VITE_BACKEND_URL + `/api/doctor/appointments/${appointmentId}/status`, {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + store.token
+                    },
+                    body: JSON.stringify({ status: "EN_ATENCION" }) // Usamos el valor exacto del Enum
+                });
+                if (resp.ok) {
+                    // Actualizamos el store localmente
+                    dispatch({ type: "update_appointment_status", payload: { id: appointmentId, status: "EN_ATENCION" } });
+                    return true;
+                }
+            } catch (error) {
+                console.error("Error actualizando cita:", error);
+            }
+            return false;
+        },
+
+        // Para la Historia 36
+        submitMedicalRecord: async (appointmentId, recordData) => {
+            try {
+                const resp = await fetch(import.meta.env.VITE_BACKEND_URL + `/api/doctor/appointments/${appointmentId}/medical-record`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + store.token
+                    },
+                    body: JSON.stringify(recordData) // { diagnostico: "...", tratamiento: "..." }
+                });
+                if (resp.ok) {
+                    // Actualizamos el estado de la cita a COMPLETADA en el store visual
+                    dispatch({ type: "update_appointment_status", payload: { id: appointmentId, status: "COMPLETADA" } });
+                    return true;
+                }
+            } catch (error) {
+                console.error("Error guardando historia médica:", error);
+            }
+            return false;
+        },
+        getPetMedicalHistory: async (petId) => {
+            try {
+                const resp = await fetch(import.meta.env.VITE_BACKEND_URL + `/api/pets/${petId}/medical-records`, {
+                    headers: { "Authorization": "Bearer " + store.token }
+                });
+                if (resp.ok) {
+                    return await resp.json(); // Devuelve el array de historiales
+                } else {
+                    return null;
+                }
+            } catch (error) {
+                console.error("Error buscando historia:", error);
+                return null;
+            }
+        },
 
 
     };

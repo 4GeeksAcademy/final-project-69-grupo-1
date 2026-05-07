@@ -21,9 +21,10 @@ import { BookingView } from "./pages/BookingView"; // <--- AGREGADO
 import { ClinicDashboard } from "./pages/ClinicDashboard";
 import { RegisterStaff } from "./pages/RegisterStaffNewEmployee";
 import { RegisterWithCode } from "./pages/RegisterWithCode";
-import { ReceptionistDashboard } from "./pages/ReceptionistDashboard";
+//import { ReceptionistDashboard } from "./pages/ReceptionistDashboard";
 import { ClinicLanding } from "./pages/ClinicLanding";
 import { RegisterClient } from "./pages/RegisterClient";
+import { DoctorDashboard } from "./pages/DoctorDashboard";
 
 const PrivateGuard = ({ children, allowedRoles }) => {
   const { store } = useGlobalReducer();
@@ -61,7 +62,7 @@ export const router = createBrowserRouter(
       <Route path="/registro-sede" element={<RegistrationLanding />} />
       <Route path="/registro-empleado" element={<RegisterStaff />} />
       <Route path="/register-staff" element={<RegisterWithCode />} />
-      <Route path="/reception/dashboard" element={<ReceptionistDashboard />} />
+      {/* <Route path="/reception/dashboard" element={<ReceptionistDashboard />} /> */}
       <Route path="/invoice" element={<Invoice />} />
 
       {/* RUTA DE MIS MASCOTAS (PÚBLICA para desarrollo) */}
@@ -82,7 +83,9 @@ export const router = createBrowserRouter(
       {/* RUTAS PROTEGIDAS */}
       <Route path="admin/clinicas" element={<PrivateGuard allowedRoles={["SUPER_ADMIN"]}><AdminClinics /></PrivateGuard>} />
       <Route path="/admin/solicitudes" element={<PrivateGuard allowedRoles={["SUPER_ADMIN"]}> <SuperAdminRequests /> </PrivateGuard>} />
-      <Route path="/clinic/admin" element={<PrivateGuard allowedRoles={["CLINIC_ADMIN","INDEPENDENT_VET"]}><ClinicDashboard /></PrivateGuard>} />
+      <Route path="/clinic/admin" element={<PrivateGuard allowedRoles={["CLINIC_ADMIN", "INDEPENDENT_VET"]}><ClinicDashboard /></PrivateGuard>} />
+      // Dentro de tu router en routes.jsx
+      <Route path="/doctor/dashboard" element={<PrivateGuard allowedRoles={["DOCTOR", "INDEPENDENT_VET"]}> <DoctorDashboard /></PrivateGuard>} />
 
       <Route path="/item2" element={<div className="container py-5 text-center"><h1>Página Item 2</h1><p>En construcción...</p></div>} />
       <Route path="/item3" element={<div className="container py-5 text-center"><h1>Página Item 3</h1><p>En construcción...</p></div>} />
