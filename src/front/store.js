@@ -12,6 +12,7 @@ export const initialStore = () => {
     staff: [],
     userPets: [],
     userAppointments: [],
+    appointments: [],
   };
 };
 
@@ -94,16 +95,21 @@ export default function storeReducer(store, action) {
             : app,
         ),
       };
+    case "set_appointments":
+      return {
+        ...store,
+        appointments: action.payload,
+      };
 
     case "set_user_pets":
-      return { 
-        ...store, 
-        userPets: action.payload 
+      return {
+        ...store,
+        userPets: action.payload,
       };
     case "set_user_appointments":
-      return { 
-        ...store, 
-        userAppointments: action.payload 
+      return {
+        ...store,
+        userAppointments: action.payload,
       };
 
     default:

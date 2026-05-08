@@ -204,17 +204,39 @@ class MedicalRecord(db.Model):
     __tablename__ = 'medical_records'
     id = db.Column(db.Integer, primary_key=True)
     fecha = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    motivo = db.Column(db.String(200), nullable=False)
-    diagnostico_tratamiento = db.Column(db.Text, nullable=False) 
     
+    # --- Datos de Triaje (Toma de vitales) ---
+    motivo = db.Column(db.String(200), nullable=False)
+    peso = db.Column(db.Float, nullable=True) # Guardado en Kilogramos (ej: 12.5)
+    temperatura = db.Column(db.Float, nullable=True) # Guardado en °C (ej: 38.5)
+    
+    # --- Evaluación Médica ---
+    diagnostico = db.Column(db.Text, nullable=False) 
+    tratamiento = db.Column(db.Text, nullable=False)
+    examenes = db.Column(db.Text, nullable=True) # Qué pruebas de laboratorio se mandan
+    
+    # --- Relaciones ---
     pet_id = db.Column(db.Integer, db.ForeignKey('pets.id'), nullable=False)
     doctor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     appointment_id = db.Column(db.Integer, db.ForeignKey('appointments.id'), nullable=True)
 
-    # Relaciones
+    # Relaciones (se mantienen igual)
     pet = db.relationship('Pet', back_populates='medical_history')
     doctor = db.relationship('User', back_populates='medical_records')
     appointment = db.relationship('Appointment', back_populates='record')
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "fecha": self.fecha.isoformat() if self.fecha else None,
+            "motivo": self.motivo,
+            "peso": self.peso,
+            "temperatura": self.temperatura,
+            "diagnostico": self.diagnostico,
+            "tratamiento": self.tratamiento,
+            "examenes": self.examenes,
+            "doctor_name": self.doctor.full_name if self.doctor else "Desconocido"
+        }
 
 class Payment(db.Model):
     __tablename__ = 'payments'
