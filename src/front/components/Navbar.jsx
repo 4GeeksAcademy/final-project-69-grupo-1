@@ -1,57 +1,60 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useGlobalReducer } from "../hooks/useGlobalReducer"; // Importamos el hook global
+import { useGlobalReducer } from "../hooks/useGlobalReducer";
 
 export const Navbar = () => {
-    const { store, actions } = useGlobalReducer(); // Accedemos al estado y las acciones
+    const { store, actions } = useGlobalReducer();
     const navigate = useNavigate();
 
     const handleLogout = () => {
-        actions.logout(); // Ejecuta la limpieza de localStorage y store
+        actions.logout();
         navigate("/login");
     };
 
     return (
-        <nav className="navbar navbar-light bg-white border-bottom px-4">
-            <div className="container-fluid d-flex justify-content-between align-items-center">
-                {/* Lado Izquierdo: Logo */}
-                <Link to="/" style={{ textDecoration: 'none' }}>
-                    <span className="navbar-brand mb-0 h1 fw-bold text-primary">PetHealth & Spa</span>
+        <nav className="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm px-4 sticky-top">
+            <div className="container-fluid">
+                {/* Logo */}
+                <Link to="/" className="navbar-brand d-flex align-items-center gap-2" style={{ textDecoration: 'none' }}>
+                    <i className="fa-solid fa-paw text-primary fs-3"></i>
+                    <span className="fw-bolder text-dark fs-4">Pet<span className="text-primary">Health</span> & Spa</span>
                 </Link>
 
-                {/* Lado Derecho: Usuario y Login/Logout */}
-                <div className="d-flex align-items-center gap-3">
-                    
-                    {/* Mostramos el nombre si el usuario está logueado */}
+                {/* Lado Derecho: Usuario y Acciones */}
+                <div className="d-flex align-items-center gap-3 ms-auto">
+
                     {store.token && store.user && (
-                        <div className="text-end me-2 d-none d-md-block">
-                            <span className="badge bg-light text-primary border fw-bold">
+                        <div className="d-none d-md-flex align-items-center gap-2">
+                            <span className="text-muted small fw-medium">Hola,</span>
+                            <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill fw-bold">
                                 {store.user.full_name}
                             </span>
                         </div>
                     )}
 
-                    <div className="bg-light rounded-circle d-flex align-items-center justify-content-center shadow-sm" 
-                         style={{ width: "38px", height: "38px" }}>
-                        <i className="fa-solid fa-user text-secondary"></i>
-                    </div>
-
-                    {/* Lógica Condicional del Botón */}
                     {store.token ? (
-                        <button 
+                        <button
                             className="btn btn-outline-danger rounded-pill px-4 fw-bold shadow-sm"
                             onClick={handleLogout}
                         >
                             <i className="fas fa-sign-out-alt me-2"></i>
-                            Logout
+                            Salir
                         </button>
                     ) : (
-                        <button 
-                            className="btn btn-primary rounded-pill px-4 fw-bold shadow-sm"
-                            onClick={() => navigate("/login")}
-                        >
-                            Login
-                        </button>
+                        <div className="d-flex gap-2">
+                            <button
+                                className="btn btn-light rounded-pill px-4 fw-bold border shadow-sm text-secondary"
+                                onClick={() => navigate("/registro-sede")}
+                            >
+                                Soy Clínica
+                            </button>
+                            <button
+                                className="btn btn-primary rounded-pill px-4 fw-bold shadow-sm"
+                                onClick={() => navigate("/login")}
+                            >
+                                Iniciar Sesión
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>

@@ -419,6 +419,26 @@ export function StoreProvider({ children }) {
             }
         },
 
+        searchClients: async (query) => {
+            const token = store.token || localStorage.getItem("token"); // <-- Seguro de vida
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/doctor/search-clients?q=${query}`, {
+                    headers: { "Authorization": "Bearer " + token }
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    console.log("Clientes encontrados:", data); // <-- Para ver si llegan
+                    return data;
+                } else {
+                    console.error("Error del backend:", await resp.text());
+                    return [];
+                }
+            } catch (error) {
+                console.error("Error buscando clientes:", error);
+                return [];
+            }
+        },
+
 
     };
 

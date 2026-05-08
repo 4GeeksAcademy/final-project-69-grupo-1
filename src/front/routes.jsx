@@ -65,7 +65,7 @@ export const router = createBrowserRouter(
       <Route path="/registro-empleado" element={<RegisterStaff />} />
       <Route path="/register-staff" element={<RegisterWithCode />} />
 
-      <Route path="/reception/dashboard" element={<ReceptionistDashboard />} />
+      {/*<Route path="/reception/dashboard" element={<ReceptionistDashboard />} */}
       <Route path="/invoice" element={<Invoice />} />
 
       {/* RUTA DE MIS MASCOTAS (PÚBLICA para desarrollo) */}

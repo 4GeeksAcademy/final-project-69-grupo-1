@@ -796,24 +796,27 @@ def create_appointment():
         return jsonify({"msg": "Faltan datos obligatorios"}), 400
 
     try:
-        # Limpiamos el formato de la fecha que viene del input datetime-local
+        # Limpiamos el formato de la fecha
         date_str = body['date'].replace('T', ' ')
         date_obj = datetime.fromisoformat(body['date'].replace('Z', '+00:00'))
     except Exception:
         return jsonify({"msg": "Formato de fecha inválido"}), 400
 
-    # Buscamos la primera clínica activa para asignar la cita
-    clinic = Clinic.query.filter_by(is_active=True).first()
-    if not clinic:
-        return jsonify({"msg": "No hay clínicas disponibles"}), 404
+    # 1. Buscamos al usuario que está logueado
+    current_user = User.query.get(user_id)
+    
+    # 2. Verificamos que pertenezca a una clínica
+    if not current_user or not current_user.clinic_id:
+        return jsonify({"msg": "Este usuario no está asociado a ninguna sede"}), 400
 
+    # 3. Creamos la cita asociándola a la misma clínica del usuario
     new_appointment = Appointment(
         date_time=date_obj,
         tipo=body.get('service_type', 'Consulta'),
-        status=AppointmentStatus.PROGRAMADA,  # Estado inicial "Pendiente"
+        status=AppointmentStatus.PROGRAMADA,
         pet_id=body['pet_id'],
-        clinic_id=clinic.id,
-        user_id=user_id
+        clinic_id=current_user.clinic_id, # ASIGNACIÓN CORRECTA AQUÍ
+        
     )
 
     db.session.add(new_appointment)
@@ -961,25 +964,35 @@ def create_medical_record(appointment_id):
     if appointment.clinic_id != claims.get("clinic_id"):
         return jsonify({"message": "No tienes acceso a esta cita."}), 403
 
-    body = request.get_json(silent=True) or {}
-    diagnostico = body.get("diagnostico")
-    tratamiento = body.get("tratamiento")
-    motivo = body.get("motivo", "Consulta general")
-
-    if not diagnostico or not tratamiento:
-        return jsonify({"message": "Diagnóstico y tratamiento son obligatorios"}), 400
-
     if appointment.record:
         return jsonify({"message": "La cita ya tiene una historia clínica registrada"}), 409
 
-    # Asociamos al doctor, finalizamos la cita y creamos el récord
+    body = request.get_json(silent=True) or {}
+    
+    # Capturamos todos los datos médicos nuevos
+    motivo = body.get("motivo", "Consulta general")
+    peso = body.get("peso")
+    temperatura = body.get("temperatura")
+    diagnostico = body.get("diagnostico")
+    tratamiento = body.get("tratamiento")
+    examenes = body.get("examenes")
+
+    # Validación mínima
+    if not diagnostico or not tratamiento:
+        return jsonify({"message": "El diagnóstico y el tratamiento son obligatorios"}), 400
+
+    # Asociamos al doctor y finalizamos la cita
     appointment.doctor_id = current_user_id
     appointment.status = AppointmentStatus.COMPLETADA
 
+    # AQUÍ ESTABA EL ERROR: Ahora usamos los campos correctos para crear el registro
     new_record = MedicalRecord(
         motivo=motivo,
-        # Guardamos todo en el campo de texto libre que definimos para el MVP
-        diagnostico_tratamiento=f"Diagnóstico: {diagnostico}\nTratamiento: {tratamiento}",
+        peso=peso,
+        temperatura=temperatura,
+        diagnostico=diagnostico,
+        tratamiento=tratamiento,
+        examenes=examenes,
         pet_id=appointment.pet_id,
         doctor_id=current_user_id,
         appointment_id=appointment.id
@@ -989,3 +1002,85 @@ def create_medical_record(appointment_id):
     db.session.commit()
 
     return jsonify({"message": "Historia médica guardada con éxito."}), 201
+
+# --- ENDPOINT PARA QUE EL CLIENTE VEA SUS CITAS ---
+@api.route('/appointments/me', methods=['GET'])
+@jwt_required()
+def get_client_appointments():
+    user_id = get_jwt_identity()
+    
+    # 1. Obtenemos todas las mascotas de este usuario
+    pets = Pet.query.filter_by(user_id=user_id).all()
+    pet_ids = [pet.id for pet in pets]
+    
+    # 2. Buscamos las citas que pertenezcan a esas mascotas
+    appointments = Appointment.query.filter(Appointment.pet_id.in_(pet_ids)).order_by(Appointment.date_time.asc()).all()
+    
+    # 3. Armamos la respuesta
+    response = []
+    for app in appointments:
+        response.append({
+            "id": app.id,
+            "date": app.date_time.isoformat() if app.date_time else None,
+            "status": app.status.value,
+            "service_type": app.tipo,
+            "pet_name": app.pet.nombre
+        })
+        
+    return jsonify(response), 200
+    return jsonify({"message": "Historia médica guardada con éxito."}), 201
+
+# --- ENDPOINT PARA VER EL HISTORIAL MÉDICO DE UNA MASCOTA ---
+@api.route('/pets/<int:pet_id>/medical-records', methods=['GET'])
+@jwt_required()
+def get_pet_medical_history(pet_id):
+    # 1. Buscamos la mascota
+    pet = Pet.query.get(pet_id)
+    if not pet:
+        return jsonify({"message": "Mascota no encontrada"}), 404
+        
+    current_user_id = int(get_jwt_identity())
+    claims = get_jwt()
+    
+    # 2. Seguridad: Si el que pide la historia es un CLIENTE, verificamos que sea SU mascota.
+    # Si es un DOCTOR o ADMIN, lo dejamos pasar para que evalúe al paciente.
+    if claims.get("role") == "CLIENTE" and pet.user_id != current_user_id:
+        return jsonify({"message": "No tienes acceso al historial de esta mascota"}), 403
+        
+    # 3. Buscamos todas las historias de esta mascota ordenadas de la más nueva a la más vieja
+    records = MedicalRecord.query.filter_by(pet_id=pet_id).order_by(MedicalRecord.fecha.desc()).all()
+    
+    # 4. Usamos el serialize que agregamos a models.py para mandarlo bonito al frontend
+    return jsonify([record.serialize() for record in records]), 200
+
+# --- ENDPOINT PARA BUSCAR CLIENTES Y SUS MASCOTAS ---
+@api.route('/doctor/search-clients', methods=['GET'])
+@jwt_required()
+@roles_required(RoleEnum.DOCTOR, RoleEnum.INDEPENDENT_VET)
+def search_clients():
+    query = request.args.get('q', '').strip()
+    
+    if len(query) < 3:
+        return jsonify({"message": "Ingresa al menos 3 caracteres para buscar"}), 400
+
+    # Buscamos usuarios que sean CLIENTES y que el nombre o email coincidan con la búsqueda
+    # Usamos ilike para que no importe si escriben en mayúsculas o minúsculas
+    clients = User.query.filter(
+        User.role == RoleEnum.CLIENTE,
+        db.or_(
+            User.email.ilike(f'%{query}%'),
+            User.full_name.ilike(f'%{query}%')
+        )
+    ).all()
+
+    # Armamos una respuesta que incluya al cliente Y a sus mascotas directamente
+    results = []
+    for client in clients:
+        results.append({
+            "id": client.id,
+            "full_name": client.full_name,
+            "email": client.email,
+            "pets": [pet.serialize() for pet in client.pets] # Aprovechamos la relación de SQLAlchemy
+        })
+
+    return jsonify(results), 200
