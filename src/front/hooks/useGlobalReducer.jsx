@@ -346,18 +346,19 @@ export function StoreProvider({ children }) {
         // Para la Historia 37
         getDoctorAppointments: async () => {
             try {
-                const resp = await fetch(import.meta.env.VITE_BACKEND_URL + "/api/doctor/appointments", {
-                    headers: { "Authorization": "Bearer " + store.token }
+                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/doctor/appointments`, {
+                    headers: {
+                        "Authorization": `Bearer ${localStorage.getItem("token")}`
+                    }
                 });
-                if (resp.ok) {
-                    const data = await resp.json();
+                if (response.ok) {
+                    const data = await response.json();
+                    // Esto es lo que llena el calendario:
                     dispatch({ type: "set_appointments", payload: data });
-                    return true;
                 }
             } catch (error) {
-                console.error("Error obteniendo citas:", error);
+                console.error("Error en getDoctorAppointments:", error);
             }
-            return false;
         },
 
         // Para la Historia 38
@@ -439,6 +440,29 @@ export function StoreProvider({ children }) {
             }
         },
 
+        scheduleAppointment: async (appointmentData) => {
+            try {
+                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/appointments`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${localStorage.getItem("token")}`
+                    },
+                    body: JSON.stringify(appointmentData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    return { success: true, message: data.message };
+                } else {
+                    return { success: false, message: data.message || "Error al programar la cita" };
+                }
+            } catch (error) {
+                console.error("Error en scheduleAppointment:", error);
+                return { success: false, message: "Error de conexión con el servidor" };
+            }
+        },
 
     };
 

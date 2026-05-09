@@ -26,14 +26,25 @@ export const DoctorDashboard = () => {
     }, []);
 
     // Transformamos las citas
-    const events = store.appointments?.map(app => ({
-        id: app.id,
-        title: `${app.tipo}: ${app.mascota.nombre}`,
-        start: app.fecha_hora,
-        backgroundColor: app.estado === "EN_ATENCION" ? "#ffc107" :
-            app.estado === "COMPLETADA" ? "#198754" : "#0d6efd",
-        extendedProps: { ...app }
-    })) || [];
+    const events = store.appointments?.map(app => {
+        // 1. Verificación de seguridad
+        if (!app || !app.date_time) return null;
+
+        return {
+            id: app.id,
+            // Usamos 'tipo' y 'pet_id' porque es lo que trae el Network
+            title: `${app.tipo} (ID Mascota: ${app.pet_id})`,
+
+            // Unimos date_time ("2026-05-09") con time ("08:00")
+            // No necesitamos split si ya viene sin la hora en el date_time
+            start: `${app.date_time}T${app.time}`,
+
+            // Usamos 'status' en lugar de 'estado'
+            backgroundColor: app.status === "EN_ATENCION" ? "#ffc107" :
+                app.status === "COMPLETADA" ? "#198754" : "#0d6efd",
+            extendedProps: { ...app }
+        };
+    }).filter(e => e !== null) || [];
 
     const handleEventClick = (info) => {
         setSelectedAppointment(info.event.extendedProps);

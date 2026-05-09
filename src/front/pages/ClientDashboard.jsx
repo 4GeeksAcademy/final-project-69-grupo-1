@@ -91,14 +91,14 @@ export const ClientDashboard = () => {
                                                         </span>
                                                     </td>
                                                     <td>
-                                                        <div className="small mb-0">{app.date}</div>
-                                                        <div className="text-muted x-small">{app.time}</div>
+                                                        <div className="small mb-0">
+                                                            <strong>Fecha:</strong> {app.date.split('T')[0]} | <strong>Hora:</strong> {app.time}
+                                                        </div>
                                                     </td>
                                                     <td className="text-end px-4">
-                                                        <span className={`badge rounded-pill ${
-                                                            app.status === 'PENDING' ? 'bg-warning text-dark' : 
+                                                        <span className={`badge rounded-pill ${app.status === 'PENDING' ? 'bg-warning text-dark' :
                                                             app.status === 'COMPLETED' ? 'bg-success' : 'bg-light text-muted'
-                                                        }`}>
+                                                            }`}>
                                                             {app.status}
                                                         </span>
                                                     </td>

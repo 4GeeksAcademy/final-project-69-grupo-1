@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useGlobalReducer } from "../hooks/useGlobalReducer";
 import toast from "react-hot-toast";
+import Swal from 'sweetalert2';
 
 // Motivos de rechazo predefinidos para estandarizar respuestas
 const REJECTION_REASONS = {
@@ -8,12 +9,12 @@ const REJECTION_REASONS = {
     "rif_vencido": "El RIF de la empresa se encuentra vencido. Por favor, cargue una copia del RIF vigente para proceder con la aprobación.",
     "titulo_invalido": "El título profesional cargado no corresponde al área de medicina veterinaria o no es verificable.",
     "datos_inconsistentes": "Existe una inconsistencia entre el nombre de la clínica y el RIF proporcionado. Verifique los datos e intente de nuevo.",
-    "otro": "" 
+    "otro": ""
 };
 
 export const SuperAdminRequests = () => {
     const { store, actions } = useGlobalReducer();
-    const [selectedPass, setSelectedPass] = useState(null); 
+    const [selectedPass, setSelectedPass] = useState(null);
     const [loadingId, setLoadingId] = useState(null);
 
     // Estados para el Modal de Rechazo
@@ -26,8 +27,21 @@ export const SuperAdminRequests = () => {
     }, []);
 
     const handleApprove = async (id) => {
-        if (!confirm("¿Estás seguro de aprobar esta sede? Se creará un usuario administrador oficial.")) return;
-        
+        // Reemplazamos el confirm nativo por la alerta de SweetAlert2
+        const result = await Swal.fire({
+            title: '¿Aprobar esta sede?',
+            text: "Se creará un usuario administrador oficial.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6', // Color de tu botón principal (puedes cambiarlo)
+            cancelButtonColor: '#d33', // Color del botón de cancelar
+            confirmButtonText: 'Sí, aprobar',
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true // Opcional: pone el botón de confirmar a la derecha
+        });
+
+        if (!result.isConfirmed) return;
+
         setLoadingId(id);
         const tempPassword = await actions.approveClinicRequest(id);
         setLoadingId(null);
@@ -126,14 +140,14 @@ export const SuperAdminRequests = () => {
                                         </td>
                                         <td className="text-end">
                                             <div className="d-flex justify-content-end gap-2">
-                                                <button 
+                                                <button
                                                     className="btn btn-success btn-sm fw-bold px-3 shadow-sm"
                                                     onClick={() => handleApprove(req.id)}
                                                     disabled={loadingId === req.id}
                                                 >
                                                     {loadingId === req.id ? <span className="spinner-border spinner-border-sm"></span> : "APROBAR"}
                                                 </button>
-                                                <button 
+                                                <button
                                                     className="btn btn-outline-danger btn-sm px-2 shadow-sm"
                                                     onClick={() => handleOpenRejectModal(req.id)}
                                                     disabled={loadingId === req.id}
@@ -169,7 +183,7 @@ export const SuperAdminRequests = () => {
                             <div className="modal-body">
                                 <div className="mb-3">
                                     <label className="form-label small fw-bold">Motivo predefinido:</label>
-                                    <select 
+                                    <select
                                         className="form-select mb-2"
                                         onChange={(e) => {
                                             const selected = e.target.value;
@@ -185,9 +199,9 @@ export const SuperAdminRequests = () => {
                                 </div>
                                 <div className="mb-3">
                                     <label className="form-label small fw-bold">Observaciones finales:</label>
-                                    <textarea 
-                                        className="form-control" 
-                                        rows="4" 
+                                    <textarea
+                                        className="form-control"
+                                        rows="4"
                                         value={observations}
                                         onChange={(e) => setObservations(e.target.value)}
                                         placeholder="Escriba aquí los detalles que el usuario recibirá por correo..."
