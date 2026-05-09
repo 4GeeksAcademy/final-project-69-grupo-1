@@ -17,7 +17,7 @@ export const Navbar = () => {
                 {/* Logo */}
                 <Link to="/" className="navbar-brand d-flex align-items-center gap-2" style={{ textDecoration: 'none' }}>
                     <i className="fa-solid fa-paw text-primary fs-3"></i>
-                    <span className="fw-bolder text-dark fs-4">Pet<span className="text-primary">Health</span> & Spa</span>
+                    <span className="fw-bolder text-dark fs-4">Nex<span className="text-primary">Petly</span></span>
                 </Link>
 
                 {/* Lado Derecho: Usuario y Acciones */}

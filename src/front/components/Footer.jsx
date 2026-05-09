@@ -9,7 +9,7 @@ export const Footer = () => (
 				<div className="col-lg-4 mb-4 mb-lg-0">
 					<div className="d-flex align-items-center gap-2 mb-3">
 						<i className="fa-solid fa-paw text-primary fs-3"></i>
-						<span className="fw-bolder text-dark fs-4">Pet<span className="text-primary">Health</span> & Spa</span>
+						<span className="fw-bolder text-dark fs-4">Nex<span className="text-primary">Petly</span> </span>
 					</div>
 					<p className="text-muted small pe-lg-5">
 						Simplificando la gestión veterinaria y acercando a los dueños de mascotas a la mejor atención médica posible.

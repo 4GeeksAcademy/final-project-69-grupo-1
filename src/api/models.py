@@ -186,6 +186,7 @@ class Appointment(db.Model):
     __tablename__ = 'appointments'
     id = db.Column(db.Integer, primary_key=True)
     date_time = db.Column(db.DateTime, nullable=False)
+    time = db.Column(db.String(5), nullable=False)
     status = db.Column(db.Enum(AppointmentStatus), default=AppointmentStatus.PROGRAMADA)
     tipo = db.Column(db.String(50), nullable=False) 
     
@@ -199,6 +200,22 @@ class Appointment(db.Model):
     pet = db.relationship('Pet', back_populates='appointments')
     doctor = db.relationship('User', back_populates='appointments_as_doctor')
     record = db.relationship('MedicalRecord', back_populates='appointment', uselist=False, cascade="all, delete")
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "clinic_id": self.clinic_id,
+            "pet_id": self.pet_id,
+            "pet_name": self.pet.nombre if self.pet else "Desconocido",
+            "pet_raza": self.pet.raza,
+            "pet_especie": self.pet.especie,
+            "pet_edad": self.pet.edad,
+            "doctor_id": self.doctor_id,
+            "date_time": self.date_time.strftime('%Y-%m-%d'),
+            "time": self.time,
+            "tipo": self.tipo,
+            "status": self.status.value
+        }
 
 class MedicalRecord(db.Model):
     __tablename__ = 'medical_records'
