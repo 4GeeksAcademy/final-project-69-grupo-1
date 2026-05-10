@@ -1,4 +1,5 @@
 import os
+import resend
 import secrets
 import string
 from functools import wraps
@@ -6,7 +7,7 @@ from flask_jwt_extended import get_jwt, verify_jwt_in_request
 from flask import Flask, jsonify, url_for, render_template
 from api.models import db, User, RoleEnum, Clinic
 from sqlalchemy.exc import ProgrammingError
-from flask_mailman import EmailMessage
+
 
 
 class APIException(Exception):
@@ -133,46 +134,70 @@ def generate_sitemap(app):
         <p>Remember to specify a real endpoint path like: </p>
         <ul style="text-align: left;">"""+links_html+"</ul></div>"
 
-def send_registration_notification(new_request):
-    """
-    Envía la doble notificación con plantillas HTML profesionales.
-    """
-    frontend_url = os.getenv("VITE_FROTEND_URL", "http://localhost:3000")
+resend.api_key = os.getenv("RESEND_API_KEY")
 
-    # 1. Correo para el SUPER ADMIN
+def send_resend_email(to, subject, html_body):
+    """
+    Función auxiliar para centralizar el envío a través de Resend.
+    """
     try:
-        admin_body = render_template(
-            "emails/admin_notification.html",
-            clinic_name=new_request.nombre_clinica,
-            admin_name=new_request.nombre_admin,
-            user_email=new_request.email,
-            admin_url=f"{frontend_url}/admin/solicitudes" # Enlace directo al panel
-        )
-        admin_msg = EmailMessage(
-            subject="🔔 NUEVA SOLICITUD - PetHealth & Spa",
-            body=admin_body,
-            to=[os.getenv('MAIL_USERNAME')]
-        )
-        admin_msg.content_subtype = "html"
-        admin_msg.send()
+        params = {
+            # IMPORTANTE: Cambia 'tu-dominio.com' por tu dominio verificado
+            "from": "NexPetly <notificaciones@nexpetly.site>", 
+            "to": [to],
+            "subject": subject,
+            "html": html_body,
+        }
+        email = resend.Emails.send(params)
+        return True
     except Exception as e:
-        print(f"Error en mail admin: {e}")
+        print(f"❌ Error enviando correo vía Resend: {e}")
+        return False
 
-    # 2. Correo para el CLIENTE (Confirmación)
-    try:
-        client_body = render_template(
-            "emails/client_confirmation.html",
-            admin_name=new_request.nombre_admin
-        )
-        client_msg = EmailMessage(
-            subject="Solicitud Recibida - PetHealth & Spa",
-            body=client_body,
-            to=[new_request.email]
-        )
-        client_msg.content_subtype = "html"
-        client_msg.send()
-    except Exception as e:
-        print(f"Error en mail cliente: {e}")
+def send_registration_notification(clinic_data, admin_data):
+    """
+    Maneja la notificación múltiple tras el registro de una clínica.
+    1. Notifica a los 3 Super Admins definidos en el .env.
+    2. Confirma al solicitante (Clinic Admin).
+    """
+    
+    # 1. Lista de correos de Super Admins desde el .env
+    superadmin_emails = [
+        os.getenv("ADMIN1_EMAIL"),
+        os.getenv("ADMIN2_EMAIL"),
+        os.getenv("ADMIN3_EMAIL")
+    ]
+    
+    # Preparamos el contenido para los Super Admins (se renderiza una sola vez por eficiencia)
+    body_superadmin = render_template(
+        "emails/admin_notification.html",
+        clinic_name=clinic_data.get("name"),
+        admin_name=admin_data.get("full_name"),
+        admin_email=admin_data.get("email"),
+        review_url=f"{os.getenv('VITE_FROTEND_URL')}/superadmin/dashboard"
+    )
+
+    # Enviamos a cada Super Admin que tenga un correo configurado
+    for email in superadmin_emails:
+        if email: # Solo envía si la variable no está vacía en el .env
+            send_resend_email(
+                to=email,
+                subject="🔔 Alerta: Nueva solicitud de clínica registrada",
+                html_body=body_superadmin
+            )
+
+    # 2. Notificación de confirmación al Administrador de la Clínica (solicitante)
+    body_client = render_template(
+        "emails/client_confirmation.html",
+        admin_name=admin_data.get("full_name"),
+        clinic_name=clinic_data.get("name")
+    )
+    
+    return send_resend_email(
+        to=admin_data.get("email"),
+        subject="🐾 Recibimos tu solicitud - NexPetly",
+        html_body=body_client
+    )
 
 def send_approval_email(user_email, admin_name, clinic_name, temp_pw):
     body_html = render_template(
@@ -183,89 +208,54 @@ def send_approval_email(user_email, admin_name, clinic_name, temp_pw):
         temp_pw=temp_pw,
         login_url=f"{os.getenv('VITE_FROTEND_URL')}/login"
     )
-
-    try:
-        msg = EmailMessage(
-            subject="🎉 ¡Tu clínica ha sido aprobada! - PetHealth & Spa",
-            body=body_html, # Aquí pasamos el HTML ya procesado
-            to=[user_email]
-        )
-        msg.content_subtype = "html" # Esto le dice al servidor que envíe HTML y no texto plano
-        msg.send()
-        return True
-    except Exception as e:
-        print(f"Error: {e}")
-        return False
+    return send_resend_email(user_email, "🎉 ¡Tu clínica ha sido aprobada! - NexPetly", body_html)
 
 def send_rejection_email(user_email, admin_name, clinic_name, observaciones):
     """
-    Envía un correo notificando el rechazo de una solicitud con feedback
+    Notifica al solicitante que su solicitud de clínica ha sido rechazada.
+    Incluye el motivo para que el usuario sepa qué corregir.
     """
     try:
+        # Renderizamos la plantilla con los datos del rechazo
         body_html = render_template(
             "emails/rejection.html",
             admin_name=admin_name,
             clinic_name=clinic_name,
-            observaciones=observaciones,
-            signup_url=f"{os.getenv('VITE_FROTEND_URL')}/registro-sede"
+            observaciones=observaciones
         )
         
-        msg = EmailMessage(
-            subject="Información sobre su solicitud - PetHealth & Spa",
-            body=body_html,
-            to=[user_email]
+        return send_resend_email(
+            to=user_email,
+            subject="Actualización sobre tu solicitud de sede - NexPetly",
+            html_body=body_html
         )
-        msg.content_subtype = "html"
-        return msg.send()
     except Exception as e:
-        print(f"Error enviando correo de rechazo: {e}")
+        print(f"❌ Error en send_rejection_email: {e}")
         return False
 
 def send_staff_invitation_email(target_email, clinic_name, role_name, invite_link):
     """
-    Envía el correo de invitación a un nuevo miembro del personal.
+    Envía el correo de invitación a un nuevo miembro del personal usando Resend.
     """
-    try:
-        body_html = render_template(
-            "emails/staff_invitation.html",
-            clinic_name=clinic_name,
-            role_name=role_name,
-            invite_link=invite_link
-        )
-        
-        msg = EmailMessage(
-            subject=f"Invitación de {clinic_name} - PetHealth & Spa",
-            body=body_html,
-            to=[target_email]
-        )
-        msg.content_subtype = "html"
-        return msg.send()
-    except Exception as e:
-        print(f"Error enviando mail de invitación: {e}")
-        return False
-    
+    body_html = render_template(
+        "emails/staff_invitation.html",
+        clinic_name=clinic_name,
+        role_name=role_name,
+        invite_link=invite_link
+    )
+    return send_resend_email(target_email, f"Invitación de {clinic_name} - NexPetly", body_html)
+
 def send_welcome_staff_email(user_email, staff_name, clinic_name, role_name, temp_pw):
     """
-    Envía un correo de bienvenida con credenciales temporales al personal cargado.
+    Envía bienvenida con credenciales temporales al personal cargado masivamente.
     """
-    try:
-        body_html = render_template(
-            "emails/welcome_staff.html",
-            staff_name=staff_name,
-            clinic_name=clinic_name,
-            role_name=role_name,
-            user_email=user_email,
-            temp_pw=temp_pw,
-            login_url=f"{os.getenv('FRONTEND_URL')}/login"
-        )
-        
-        msg = EmailMessage(
-            subject=f"Acceso a PetHealth & Spa - {clinic_name}",
-            body=body_html,
-            to=[user_email]
-        )
-        msg.content_subtype = "html"
-        return msg.send()
-    except Exception as e:
-        print(f"Error enviando bienvenida a {user_email}: {e}")
-        return False
+    body_html = render_template(
+        "emails/welcome_staff.html",
+        staff_name=staff_name,
+        clinic_name=clinic_name,
+        role_name=role_name,
+        user_email=user_email,
+        temp_pw=temp_pw,
+        login_url=f"{os.getenv('VITE_FROTEND_URL')}/login"
+    )
+    return send_resend_email(user_email, f"Acceso a NexPetly - {clinic_name}", body_html)

@@ -21,6 +21,7 @@ wtforms = "==3.1.2"
 sqlalchemy = "*"
 flask-mailman = "*"
 flask-cors = "*"
+resend = "*"
 
 [requires]
 python_version = "3.13"
