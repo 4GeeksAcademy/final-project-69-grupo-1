@@ -1163,3 +1163,27 @@ def get_available_slots():
         "clinic_id": clinic_id,
         "slots": available_slots
     }), 200
+
+# --- ENDPOINT PARA QUE EL CLIENTE CANCELE SU CITA (Historia #34) ---
+@api.route('/appointments/<int:appointment_id>/cancel', methods=['PATCH'])
+@jwt_required()
+@roles_required(RoleEnum.CLIENTE)
+def cancel_appointment(appointment_id):
+    user_id = int(get_jwt_identity())
+    appointment = Appointment.query.get(appointment_id)
+    
+    if not appointment:
+        return jsonify({"message": "Cita no encontrada"}), 404
+        
+    # Seguridad: Solo el dueño de la mascota puede cancelar la cita
+    if appointment.pet.user_id != user_id:
+        return jsonify({"message": "No tienes permiso para cancelar esta cita"}), 403
+        
+    # Solo se pueden cancelar citas PROGRAMADAS
+    if appointment.status != AppointmentStatus.PROGRAMADA:
+        return jsonify({"message": "Solo puedes cancelar citas que estén programadas"}), 400
+        
+    appointment.status = AppointmentStatus.CANCELADA
+    db.session.commit()
+    
+    return jsonify({"message": "Cita cancelada con éxito"}), 200

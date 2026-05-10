@@ -39,10 +39,10 @@ export const Login = () => {
                     navigate("/change-password");
                 }
                 else if (data.user.role === "SUPER_ADMIN") {
-                    navigate("/admin/solicitudes");
+                    navigate("/admin/dashboard");
                 }
                 else if (["CLINIC_ADMIN", "INDEPENDENT_VET"].includes(data.user.role)) {
-                    navigate("/clinic/admin");
+                    navigate("/mi-clinica"); // <-- CAMBIADO AQUÍ
                 }
                 else if (data.user.role === "CLIENTE") {
                     navigate("/client/dashboard");

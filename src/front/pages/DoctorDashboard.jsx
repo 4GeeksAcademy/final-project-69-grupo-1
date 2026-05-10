@@ -5,6 +5,7 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import useGlobalReducer from "../hooks/useGlobalReducer";
 import { MedicalRecordModal } from "../components/modals/MedicalRecordModal";
+import Swal from "sweetalert2"; // <-- Importamos SweetAlert para el aviso
 
 export const DoctorDashboard = () => {
     const { store, actions } = useGlobalReducer();
@@ -13,7 +14,7 @@ export const DoctorDashboard = () => {
     const [selectedAppointment, setSelectedAppointment] = useState(null);
     const [showModal, setShowModal] = useState(false);
 
-    // NUEVO ESTADO: Para controlar qué pestaña estamos viendo
+    // Estado para controlar qué pestaña estamos viendo
     const [activeTab, setActiveTab] = useState("calendario");
 
     // Estados para el Explorador de Pacientes
@@ -27,27 +28,36 @@ export const DoctorDashboard = () => {
 
     // Transformamos las citas
     const events = store.appointments?.map(app => {
-        // 1. Verificación de seguridad
         if (!app || !app.date_time) return null;
 
         return {
             id: app.id,
-            // Usamos 'tipo' y 'pet_id' porque es lo que trae el Network
             title: `${app.tipo} (ID Mascota: ${app.pet_id})`,
-
-            // Unimos date_time ("2026-05-09") con time ("08:00")
-            // No necesitamos split si ya viene sin la hora en el date_time
             start: `${app.date_time}T${app.time}`,
-
-            // Usamos 'status' en lugar de 'estado'
             backgroundColor: app.status === "EN_ATENCION" ? "#ffc107" :
                 app.status === "COMPLETADA" ? "#198754" : "#0d6efd",
             extendedProps: { ...app }
         };
     }).filter(e => e !== null) || [];
 
+    // --- AQUÍ ESTÁ LA MAGIA DEL BLOQUEO ---
     const handleEventClick = (info) => {
-        setSelectedAppointment(info.event.extendedProps);
+        const appointmentData = info.event.extendedProps;
+
+        // Si la cita ya está completada, bloqueamos la apertura del modal
+        if (appointmentData.status === "COMPLETADA") {
+            Swal.fire({
+                title: 'Cita Completada',
+                html: `El historial médico para esta consulta ya fue registrado y cerrado.<br><br>Si deseas leer el expediente de <b>${appointmentData.pet_name || 'este paciente'}</b>, por favor utiliza la pestaña de <b>Expedientes Clínicos</b>.`,
+                icon: 'info',
+                confirmButtonColor: '#0d6efd',
+                confirmButtonText: 'Entendido'
+            });
+            return; // El "return" evita que el código siga bajando y abra el modal
+        }
+
+        // Si no está completada, abrimos el modal normal
+        setSelectedAppointment(appointmentData);
         setShowModal(true);
     };
 
@@ -55,11 +65,26 @@ export const DoctorDashboard = () => {
         <div className="container-fluid py-4">
 
             {/* Header del Dashboard */}
-            <div className="row mb-4">
-                <div className="col-12 d-flex justify-content-between align-items-end">
-                    <div>
-                        <h2 className="fw-bold text-dark mb-0">Panel Médico</h2>
-                        <p className="text-muted mb-0">Gestión de consultas para la sede {store.user?.clinic_name}</p>
+            <div className="row mb-4 align-items-center">
+                <div className="col-md-7 mb-3 mb-md-0">
+                    <h2 className="fw-bold text-dark mb-0">Panel Médico</h2>
+                    <p className="text-muted mb-0">Gestión de consultas diarias</p>
+                </div>
+
+
+                <div className="col-md-5 text-md-end d-flex justify-content-md-end">
+                    <div className="bg-primary-subtle border border-primary-subtle rounded-pill px-4 py-2 d-inline-flex align-items-center shadow-sm">
+                        <div className="bg-primary rounded-circle d-flex justify-content-center align-items-center me-3 shadow-sm" style={{ width: "38px", height: "38px" }}>
+                            <i className="fas fa-hospital text-white small"></i>
+                        </div>
+                        <div className="text-start pe-2">
+                            <span className="d-block fw-bold text-primary" style={{ lineHeight: "1.2", fontSize: "0.95rem" }}>
+                                {store.user?.clinic_name || "Sede Principal"}
+                            </span>
+                            <small className="text-primary opacity-75 fw-medium" style={{ fontSize: "0.75rem" }}>
+                                <i className="fas fa-map-marker-alt me-1"></i> Caracas
+                            </small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -91,7 +116,7 @@ export const DoctorDashboard = () => {
                         <div className="card shadow-sm p-3 bg-white border-0 rounded-4">
                             <FullCalendar
                                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                                initialView="timeGridWeek" // Puedes cambiarlo a dayGridMonth si prefieres
+                                initialView="timeGridWeek"
                                 headerToolbar={{
                                     left: 'prev,next today',
                                     center: 'title',
@@ -124,8 +149,8 @@ export const DoctorDashboard = () => {
                                                 <strong className="text-dark fs-5">
                                                     {new Date(ev.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </strong>
-                                                <span className={`badge ${ev.extendedProps.estado === 'EN_ATENCION' ? 'bg-warning text-dark' : ev.extendedProps.estado === 'COMPLETADA' ? 'bg-success' : 'bg-primary'} align-self-start`}>
-                                                    {ev.extendedProps.estado}
+                                                <span className={`badge ${ev.extendedProps.status === 'EN_ATENCION' ? 'bg-warning text-dark' : ev.extendedProps.status === 'COMPLETADA' ? 'bg-success' : 'bg-primary'} align-self-start`}>
+                                                    {ev.extendedProps.status}
                                                 </span>
                                             </div>
                                             <small className="text-muted fw-semibold">{ev.title}</small>
@@ -154,7 +179,6 @@ export const DoctorDashboard = () => {
                             </h5>
 
                             <div className="row">
-                                {/* Columna Izquierda: Buscador */}
                                 <div className="col-md-4 border-end pe-4">
                                     <label className="form-label small fw-bold text-muted">Nombre del Cliente o Correo</label>
                                     <div className="input-group mb-4 shadow-sm rounded">
@@ -184,7 +208,6 @@ export const DoctorDashboard = () => {
                                         </button>
                                     </div>
 
-                                    {/* Lista de Resultados */}
                                     {searchResults && searchResults.length > 0 && (
                                         <div className="list-group">
                                             {searchResults.map(client => (
@@ -214,7 +237,6 @@ export const DoctorDashboard = () => {
                                     )}
                                 </div>
 
-                                {/* Columna Derecha: Historial Clínico (Acordeón) */}
                                 <div className="col-md-8 ps-4">
                                     {selectedPet ? (
                                         <>

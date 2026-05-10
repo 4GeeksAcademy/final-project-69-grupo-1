@@ -6,13 +6,11 @@ import Swal from "sweetalert2";
 export const BookingView = () => {
     const { store, actions } = useGlobalReducer();
     const navigate = useNavigate();
-    
-    // Estados locales
+
     const [pets, setPets] = useState([]);
     const [loading, setLoading] = useState(false);
     const [availableSlots, setAvailableSlots] = useState([]);
-    
-    // Estado del formulario
+
     const [selection, setSelection] = useState({
         pet_id: "",
         service_type: "Consulta Médica",
@@ -21,7 +19,6 @@ export const BookingView = () => {
         doctor_id: ""
     });
 
-    // 1. Cargar mascotas al inicio
     const getMyPets = async () => {
         const token = localStorage.getItem("token");
         try {
@@ -38,7 +35,6 @@ export const BookingView = () => {
         }
     };
 
-    // 2. Cargar horarios disponibles cuando cambie la fecha
     const fetchSlots = async (date) => {
         if (!date) return;
         setLoading(true);
@@ -64,24 +60,21 @@ export const BookingView = () => {
         getMyPets();
     }, []);
 
-    // Manejador de cambios en los inputs
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setSelection(prev => ({ ...prev, [name]: value }));
-        
-        // Si cambia la fecha, buscamos horarios
+
         if (name === "date") {
             fetchSlots(value);
-            setSelection(prev => ({ ...prev, time: "", doctor_id: "" })); // Limpiamos selección previa
+            setSelection(prev => ({ ...prev, time: "", doctor_id: "" }));
         }
     };
 
-    // 3. Confirmar la cita
     const handleSumbitBooking = async (e) => {
         e.preventDefault();
-        
+
         if (!selection.time || !selection.doctor_id) {
-            return Swal.fire("Error", "Debes seleccionar un horario y un médico", "warning");
+            return Swal.fire("Atención", "Debes seleccionar un horario y un especialista.", "warning");
         }
 
         setLoading(true);
@@ -90,119 +83,156 @@ export const BookingView = () => {
 
         if (result.success) {
             Swal.fire("¡Reservado!", result.message, "success");
-            navigate("/client/dashboard"); // Ajusta la ruta a tu dashboard
+            navigate("/client/dashboard"); // <- Redirección al panel
         } else {
             Swal.fire("Error", result.message, "error");
         }
     };
 
-    // Encontrar médicos disponibles para la hora seleccionada
     const currentSlot = availableSlots.find(s => s.time === selection.time);
 
     return (
-        <div className="container py-5">
-            <div className="row justify-content-center">
-                <div className="col-md-8 col-lg-6">
-                    <div className="card border-0 shadow-lg p-4">
-                        <h2 className="text-center mb-4 fw-bold text-primary">Solicitar Cita 🐾</h2>
-                        
-                        <form onSubmit={handleSumbitBooking}>
-                            {/* Selección de Mascota */}
-                            <div className="mb-3">
-                                <label className="form-label fw-bold">1. Selecciona tu Mascota</label>
-                                <select 
-                                    className="form-select" 
-                                    name="pet_id" 
-                                    value={selection.pet_id} 
-                                    onChange={handleInputChange} 
-                                    required
-                                >
-                                    {pets.length === 0 && <option>No tienes mascotas registradas</option>}
-                                    {pets.map(pet => <option key={pet.id} value={pet.id}>{pet.nombre} ({pet.especie})</option>)}
-                                </select>
+        <div className="container-fluid bg-light min-vh-100 py-5">
+            <div className="container">
+                <div className="row justify-content-center">
+                    <div className="col-lg-8">
+                        <div className="card border-0 shadow-sm rounded-4 overflow-hidden animate__animated animate__fadeInUp">
+                            {/* Header del Formulario */}
+                            <div className="bg-primary text-white p-4 text-center">
+                                <h3 className="fw-bold mb-1"><i className="fas fa-calendar-check me-2"></i> Agendar Nueva Cita</h3>
+                                <p className="mb-0 opacity-75">Sigue los pasos para asegurar el cupo de tu mascota</p>
                             </div>
 
-                            {/* Selección de Servicio */}
-                            <div className="mb-3">
-                                <label className="form-label fw-bold">2. Tipo de Servicio</label>
-                                <select 
-                                    className="form-select" 
-                                    name="service_type" 
-                                    value={selection.service_type} 
-                                    onChange={handleInputChange}
-                                >
-                                    <option value="Consulta Médica">Consulta Médica 🩺</option>
-                                    <option value="Barbería">Peluquería / Spa ✂️</option>
-                                    <option value="Vacunación">Vacunación 💉</option>
-                                </select>
-                            </div>
+                            <form onSubmit={handleSumbitBooking} className="p-4 p-md-5 bg-white">
 
-                            {/* Selección de Fecha */}
-                            <div className="mb-3">
-                                <label className="form-label fw-bold">3. Fecha de la Cita</label>
-                                <input 
-                                    type="date" 
-                                    className="form-control" 
-                                    name="date" 
-                                    min={new Date().toISOString().split("T")[0]} // No permite fechas pasadas
-                                    value={selection.date} 
-                                    onChange={handleInputChange} 
-                                    required 
-                                />
-                            </div>
-
-                            {/* Grid de Horarios (Slots) */}
-                            {selection.date && (
-                                <div className="mb-3">
-                                    <label className="form-label fw-bold">4. Horarios Disponibles</label>
-                                    <div className="d-flex flex-wrap gap-2">
-                                        {availableSlots.map(slot => (
-                                            <button
-                                                key={slot.time}
-                                                type="button"
-                                                disabled={slot.status !== "available"}
-                                                className={`btn btn-sm ${selection.time === slot.time ? 'btn-primary' : 'btn-outline-secondary'} 
-                                                    ${slot.status === 'busy' ? 'opacity-50' : ''}`}
-                                                onClick={() => setSelection(prev => ({ ...prev, time: slot.time, doctor_id: "" }))}
+                                <div className="row g-4">
+                                    {/* Paso 1 y 2 */}
+                                    <div className="col-md-6">
+                                        <div className="mb-4">
+                                            <label className="form-label fw-bold text-secondary small text-uppercase">1. Paciente</label>
+                                            <select
+                                                className="form-select form-select-lg bg-light border-0 shadow-none"
+                                                name="pet_id"
+                                                value={selection.pet_id}
+                                                onChange={handleInputChange}
+                                                required
                                             >
-                                                {slot.time}
-                                                {slot.status === 'lunch' && " (Receso)"}
-                                            </button>
-                                        ))}
+                                                {pets.length === 0 && <option value="">Sin mascotas registradas</option>}
+                                                {pets.map(pet => <option key={pet.id} value={pet.id}>🐾 {pet.nombre} ({pet.especie})</option>)}
+                                            </select>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
 
-                            {/* Selección de Médico (Solo si hay hora seleccionada) */}
-                            {selection.time && currentSlot && (
-                                <div className="mb-4 animate__animated animate__fadeIn">
-                                    <label className="form-label fw-bold">5. Médico Disponible</label>
-                                    <select 
-                                        className="form-select border-primary" 
-                                        name="doctor_id" 
-                                        value={selection.doctor_id} 
-                                        onChange={handleInputChange} 
-                                        required
-                                    >
-                                        <option value="">Selecciona un especialista...</option>
-                                        {currentSlot.available_doctors.map(doc => (
-                                            <option key={doc.id} value={doc.id}>{doc.full_name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
+                                    <div className="col-md-6">
+                                        <div className="mb-4">
+                                            <label className="form-label fw-bold text-secondary small text-uppercase">2. Servicio Requerido</label>
+                                            <select
+                                                className="form-select form-select-lg bg-light border-0 shadow-none"
+                                                name="service_type"
+                                                value={selection.service_type}
+                                                onChange={handleInputChange}
+                                            >
+                                                <option value="Consulta Médica">🩺 Consulta Médica</option>
+                                                <option value="Barbería">✂️ Peluquería / Spa</option>
+                                                <option value="Vacunación">💉 Vacunación</option>
+                                            </select>
+                                        </div>
+                                    </div>
 
-                            <button
-                                type="submit"
-                                className="btn btn-primary w-100 py-3 fw-bold shadow mt-3"
-                                disabled={loading || !selection.doctor_id}
-                            >
-                                {loading ? "Procesando..." : "Confirmar Cita Ahora"}
-                            </button>
-                        </form>
+                                    <div className="col-12 border-top pt-4">
+                                        {/* Paso 3 */}
+                                        <div className="mb-4">
+                                            <label className="form-label fw-bold text-secondary small text-uppercase">3. Elige la Fecha</label>
+                                            <input
+                                                type="date"
+                                                className="form-control form-control-lg bg-light border-0 shadow-none"
+                                                name="date"
+                                                min={new Date().toISOString().split("T")[0]}
+                                                value={selection.date}
+                                                onChange={handleInputChange}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Paso 4 (Renderizado Condicional) */}
+                                    {selection.date && (
+                                        <div className="col-12 animate__animated animate__fadeIn">
+                                            <label className="form-label fw-bold text-secondary small text-uppercase">4. Horarios Disponibles</label>
+                                            <div className="d-flex flex-wrap gap-2 mb-4">
+                                                {availableSlots.length === 0 && !loading && (
+                                                    <span className="text-danger small">No hay horarios disponibles para esta fecha.</span>
+                                                )}
+                                                {loading && <span className="text-muted small">Cargando disponibilidad...</span>}
+                                                {availableSlots.map(slot => (
+                                                    <button
+                                                        key={slot.time}
+                                                        type="button"
+                                                        disabled={slot.status !== "available"}
+                                                        className={`btn rounded-pill px-4 fw-bold ${selection.time === slot.time ? 'btn-primary shadow-sm' : 'btn-outline-primary bg-white'} 
+                                                            ${slot.status === 'busy' || slot.status === 'lunch' ? 'opacity-50 disabled bg-light border-light text-muted' : ''}`}
+                                                        onClick={() => setSelection(prev => ({ ...prev, time: slot.time, doctor_id: "" }))}
+                                                    >
+                                                        <i className="far fa-clock me-1"></i> {slot.time}
+                                                        {slot.status === 'lunch' && " (Receso)"}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Paso 5 (Renderizado Condicional) */}
+                                    {selection.time && currentSlot && (
+                                        <div className="col-12 animate__animated animate__fadeInUp">
+                                            <div className="bg-primary-subtle p-4 rounded-4 border border-primary-subtle">
+                                                <label className="form-label fw-bold text-primary small text-uppercase mb-3">5. Especialista Asignado</label>
+                                                <select
+                                                    className="form-select form-select-lg border-0 shadow-sm"
+                                                    name="doctor_id"
+                                                    value={selection.doctor_id}
+                                                    onChange={handleInputChange}
+                                                    required
+                                                >
+                                                    <option value="">Selecciona quién atenderá a tu mascota...</option>
+                                                    {currentSlot.available_doctors.map(doc => (
+                                                        <option key={doc.id} value={doc.id}>👨‍⚕️ Dr/Dra. {doc.full_name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* --- NUEVOS BOTONES AL ESTILO MYPETS --- */}
+                                <div className="mt-5 border-top pt-4">
+                                    <div className="d-flex flex-column flex-sm-row gap-3">
+                                        <button
+                                            type="button"
+                                            className="btn btn-light btn-lg fw-bold w-100 rounded-pill text-secondary hover-lift"
+                                            onClick={() => navigate("/client/dashboard")}
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="btn btn-primary btn-lg fw-bold w-100 rounded-pill shadow-sm hover-lift"
+                                            disabled={loading || !selection.doctor_id}
+                                        >
+                                            {loading ? "Procesando..." : "Confirmar Cita Ahora"}
+                                        </button>
+                                    </div>
+                                    <p className="small text-center text-muted mt-3 mb-0">Al confirmar, aseguras un cupo en nuestra agenda.</p>
+                                </div>
+
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <style>{`
+                .hover-lift:hover { transform: translateY(-3px); transition: transform 0.2s ease; box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; }
+            `}</style>
         </div>
     );
 };
