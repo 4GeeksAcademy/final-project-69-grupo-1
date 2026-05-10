@@ -15,7 +15,7 @@ from api.utils import generate_sitemap, APIException, generate_temp_password, ro
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, get_jwt, decode_token
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
-from flask_mailman import EmailMessage
+
 
 api = Blueprint('api', __name__, template_folder='templates')
 
@@ -176,7 +176,14 @@ def submit_registration():
         print(f"Error guardando en DB: {e}")
         return jsonify({"error": "Error al guardar la solicitud"}), 500
 
-    send_registration_notification(new_request)
+    clinic_data = {
+        "name": new_request.nombre_clinica
+    }
+    admin_data = {
+        "full_name": new_request.nombre_admin,
+        "email": new_request.email
+    }
+    send_registration_notification(clinic_data, admin_data)
 
     return jsonify({"message": "Solicitud recibida exitosamente"}), 201
 
@@ -753,10 +760,10 @@ def update_clinic_staff_code(clinic_id):
 def get_user_pets():
     # El identity del token es el ID del usuario
     user_id = get_jwt_identity()
-    
+
     # Filtramos mascotas por el owner_id
     pets = Pet.query.filter_by(user_id=user_id).all()
-    
+
     # Retornamos la lista serializada
     return jsonify([pet.serialize() for pet in pets]), 200
 
@@ -793,7 +800,7 @@ def create_appointment():
     client_id = get_jwt_identity()
     claims = get_jwt()
     clinic_id = claims.get("clinic_id")
-    
+
     data = request.json
     if not data:
         return jsonify({"message": "Cuerpo de la petición vacío"}), 400
@@ -815,7 +822,7 @@ def create_appointment():
     # 2. Procesar la fecha
     try:
         appointment_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-        print(appointment_date,"*"*20)
+        print(appointment_date, "*"*20)
     except ValueError:
         return jsonify({"message": "Formato de fecha inválido. Use YYYY-MM-DD"}), 400
 
@@ -824,7 +831,7 @@ def create_appointment():
     conflict = Appointment.query.filter(
         Appointment.doctor_id == doctor_id,
         Appointment.date_time == appointment_date,
-        Appointment.time == str(time_str), # Forzamos a string por seguridad
+        Appointment.time == str(time_str),  # Forzamos a string por seguridad
         Appointment.status != AppointmentStatus.CANCELADA
     ).first()
 
@@ -905,28 +912,30 @@ def register_payment():
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": f"Error al procesar el pago: {str(e)}"}), 500
-    
+
 
 # ENDPOINTS DEL DOCTOR (Historias 36, 37, 38)
 
 
-#metodo get para ver las citas
+# metodo get para ver las citas
 @api.route('/doctor/appointments', methods=['GET'])
 @jwt_required()
 def get_doctor_appointments():
     # El ID lo sacamos del token del médico que inició sesión
-    doctor_id = get_jwt_identity() 
-    
+    doctor_id = get_jwt_identity()
+
     # IMPORTANTE: Filtrar por doctor_id y NO traer las canceladas
     appointments = Appointment.query.filter(
         Appointment.doctor_id == doctor_id,
         Appointment.status != AppointmentStatus.CANCELADA
     ).all()
-    
+
     # Usamos el serialize() que ya tiene 'pet_name', 'service_type', etc.
     return jsonify([app.serialize() for app in appointments]), 200
 
-#metodo patch para atencion
+# metodo patch para atencion
+
+
 @api.route('/doctor/appointments/<int:appointment_id>/status', methods=['PATCH'])
 @jwt_required()
 @roles_required(RoleEnum.DOCTOR, RoleEnum.INDEPENDENT_VET)
@@ -954,7 +963,9 @@ def update_appointment_status(appointment_id):
 
     return jsonify({"message": f"Estado actualizado a {new_status}"}), 200
 
-#metodo post para registrar el diagnostico
+# metodo post para registrar el diagnostico
+
+
 @api.route('/doctor/appointments/<int:appointment_id>/medical-record', methods=['POST'])
 @jwt_required()
 @roles_required(RoleEnum.DOCTOR, RoleEnum.INDEPENDENT_VET)
@@ -974,7 +985,7 @@ def create_medical_record(appointment_id):
         return jsonify({"message": "La cita ya tiene una historia clínica registrada"}), 409
 
     body = request.get_json(silent=True) or {}
-    
+
     # Capturamos todos los datos médicos nuevos
     motivo = body.get("motivo", "Consulta general")
     peso = body.get("peso")
@@ -1010,18 +1021,21 @@ def create_medical_record(appointment_id):
     return jsonify({"message": "Historia médica guardada con éxito."}), 201
 
 # --- ENDPOINT PARA QUE EL CLIENTE VEA SUS CITAS ---
+
+
 @api.route('/appointments/me', methods=['GET'])
 @jwt_required()
 def get_client_appointments():
     user_id = get_jwt_identity()
-    
+
     # 1. Obtenemos todas las mascotas de este usuario
     pets = Pet.query.filter_by(user_id=user_id).all()
     pet_ids = [pet.id for pet in pets]
-    
+
     # 2. Buscamos las citas que pertenezcan a esas mascotas
-    appointments = Appointment.query.filter(Appointment.pet_id.in_(pet_ids)).order_by(Appointment.date_time.asc()).all()
-    
+    appointments = Appointment.query.filter(Appointment.pet_id.in_(
+        pet_ids)).order_by(Appointment.date_time.asc()).all()
+
     # 3. Armamos la respuesta
     response = []
     for app in appointments:
@@ -1033,11 +1047,13 @@ def get_client_appointments():
             "service_type": app.tipo,
             "pet_name": app.pet.nombre
         })
-        
+
     return jsonify(response), 200
     return jsonify({"message": "Historia médica guardada con éxito."}), 201
 
 # --- ENDPOINT PARA VER EL HISTORIAL MÉDICO DE UNA MASCOTA ---
+
+
 @api.route('/pets/<int:pet_id>/medical-records', methods=['GET'])
 @jwt_required()
 def get_pet_medical_history(pet_id):
@@ -1045,28 +1061,31 @@ def get_pet_medical_history(pet_id):
     pet = Pet.query.get(pet_id)
     if not pet:
         return jsonify({"message": "Mascota no encontrada"}), 404
-        
+
     current_user_id = int(get_jwt_identity())
     claims = get_jwt()
-    
+
     # 2. Seguridad: Si el que pide la historia es un CLIENTE, verificamos que sea SU mascota.
     # Si es un DOCTOR o ADMIN, lo dejamos pasar para que evalúe al paciente.
     if claims.get("role") == "CLIENTE" and pet.user_id != current_user_id:
         return jsonify({"message": "No tienes acceso al historial de esta mascota"}), 403
-        
+
     # 3. Buscamos todas las historias de esta mascota ordenadas de la más nueva a la más vieja
-    records = MedicalRecord.query.filter_by(pet_id=pet_id).order_by(MedicalRecord.fecha.desc()).all()
-    
+    records = MedicalRecord.query.filter_by(
+        pet_id=pet_id).order_by(MedicalRecord.fecha.desc()).all()
+
     # 4. Usamos el serialize que agregamos a models.py para mandarlo bonito al frontend
     return jsonify([record.serialize() for record in records]), 200
 
 # --- ENDPOINT PARA BUSCAR CLIENTES Y SUS MASCOTAS ---
+
+
 @api.route('/doctor/search-clients', methods=['GET'])
 @jwt_required()
 @roles_required(RoleEnum.DOCTOR, RoleEnum.INDEPENDENT_VET)
 def search_clients():
     query = request.args.get('q', '').strip()
-    
+
     if len(query) < 3:
         return jsonify({"message": "Ingresa al menos 3 caracteres para buscar"}), 400
 
@@ -1087,10 +1106,12 @@ def search_clients():
             "id": client.id,
             "full_name": client.full_name,
             "email": client.email,
-            "pets": [pet.serialize() for pet in client.pets] # Aprovechamos la relación de SQLAlchemy
+            # Aprovechamos la relación de SQLAlchemy
+            "pets": [pet.serialize() for pet in client.pets]
         })
 
     return jsonify(results), 200
+
 
 @api.route('/clinics/available-slots', methods=['GET'])
 @jwt_required()
@@ -1098,11 +1119,11 @@ def get_available_slots():
     # 1. Obtener clinic_id del token y fecha de los parámetros de la URL
     claims = get_jwt()
     clinic_id = claims.get("clinic_id")
-    date_str = request.args.get("date") # Formato: YYYY-MM-DD
-    
+    date_str = request.args.get("date")  # Formato: YYYY-MM-DD
+
     if not date_str:
         return jsonify({"message": "La fecha es obligatoria"}), 400
-        
+
     try:
         # Convertimos el string a objeto date de Python para filtrar en SQLAlchemy
         query_date = datetime.strptime(date_str, '%Y-%m-%d').date()
@@ -1110,16 +1131,17 @@ def get_available_slots():
         return jsonify({"message": "Formato de fecha inválido. Use YYYY-MM-DD"}), 400
 
     # 2. Definir los bloques de 1 hora (8am a 4pm, excluyendo 12pm)
-    work_slots = ["08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00"]
+    work_slots = ["08:00", "09:00", "10:00",
+                  "11:00", "13:00", "14:00", "15:00"]
     lunch_break = "12:00"
 
     # 3. Obtener todos los médicos activos de esta clínica
     all_doctors = User.query.filter_by(
-        clinic_id=clinic_id, 
-        role=RoleEnum.DOCTOR, 
+        clinic_id=clinic_id,
+        role=RoleEnum.DOCTOR,
         is_active=True
     ).all()
-    
+
     if not all_doctors:
         return jsonify({"message": "No hay médicos disponibles en esta sede"}), 404
 
@@ -1132,19 +1154,20 @@ def get_available_slots():
 
     # 5. Construir la respuesta cruzando horarios y médicos
     available_slots = []
-    
+
     for slot_time in work_slots:
         # Buscamos quiénes están ocupados a esta hora específica
-        busy_doctor_ids = [a.doctor_id for a in booked_appointments if a.time == slot_time]
-        
+        busy_doctor_ids = [
+            a.doctor_id for a in booked_appointments if a.time == slot_time]
+
         # Filtramos los médicos que NO están en la lista de ocupados
         free_doctors = [
-            {"id": doc.id, "full_name": doc.full_name} 
+            {"id": doc.id, "full_name": doc.full_name}
             for doc in all_doctors if doc.id not in busy_doctor_ids
         ]
-        
+
         status = "available" if len(free_doctors) > 0 else "busy"
-        
+
         available_slots.append({
             "time": slot_time,
             "status": status,
@@ -1153,8 +1176,8 @@ def get_available_slots():
 
     # Insertamos el bloque de almuerzo como informativo (índice 4)
     available_slots.insert(4, {
-        "time": lunch_break, 
-        "status": "lunch", 
+        "time": lunch_break,
+        "status": "lunch",
         "available_doctors": []
     })
 
