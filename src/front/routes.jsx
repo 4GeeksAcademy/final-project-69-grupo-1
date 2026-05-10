@@ -21,8 +21,7 @@ import { BookingView } from "./pages/BookingView"; // <--- AGREGADO
 import { ClinicDashboard } from "./pages/ClinicDashboard";
 import { RegisterStaff } from "./pages/RegisterStaffNewEmployee";
 import { RegisterWithCode } from "./pages/RegisterWithCode";
-//import { ReceptionistDashboard } from "./pages/ReceptionistDashboard";
-//import { ReceptionistDashboard } from "./pages/ReceptionistDashboard";
+import { ReceptionistDashboard } from "./pages/ReceptionistDashboard";
 import { ClinicLanding } from "./pages/ClinicLanding";
 import { RegisterClient } from "./pages/RegisterClient";
 import { ClientDashboard } from "./pages/ClientDashboard";
@@ -65,6 +64,7 @@ export const router = createBrowserRouter(
       <Route path="/registro-sede" element={<RegistrationLanding />} />
       <Route path="/registro-empleado" element={<RegisterStaff />} />
       <Route path="/register-staff" element={<RegisterWithCode />} />
+      <Route path="/reception" element={<ReceptionistDashboard />} />
 
       {/* RUTA DE SEGURIDAD (Solo debe ser accedida si hay un proceso de cambio pendiente) */}
       <Route path="/change-password" element={

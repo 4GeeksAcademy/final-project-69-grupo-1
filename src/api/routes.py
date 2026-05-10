@@ -8,6 +8,7 @@ import string
 import os
 import cloudinary
 import cloudinary.uploader
+import requests
 from datetime import datetime, timedelta, timezone
 from flask import Flask, request, jsonify, url_for, Blueprint
 from api.models import db, User, Clinic, Appointment, Pet, MedicalRecord, ClinicRequest, RoleEnum, RequestStatus, AppointmentStatus
@@ -1210,3 +1211,20 @@ def cancel_appointment(appointment_id):
     db.session.commit()
     
     return jsonify({"message": "Cita cancelada con éxito"}), 200
+
+@api.route('/exchange-rate', methods=['GET'])
+def get_exchange_rate():
+    try:
+        # Llamada a DolarAPI para obtener solo el BCV
+        response = requests.get("https://ve.dolarapi.com/v1/dolares/bcv")
+        
+        if response.status_code == 200:
+            data = response.json()
+            return jsonify({
+                "rate": data['promedio'], # Este es el valor del dólar
+                "last_update": data['fechaActualizacion']
+            }), 200
+            
+        return jsonify({"message": "No se pudo obtener la tasa"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

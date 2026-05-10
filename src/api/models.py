@@ -209,7 +209,7 @@ class Appointment(db.Model):
             "pet_name": self.pet.nombre if self.pet else "Desconocido",
             "pet_raza": self.pet.raza,
             "pet_especie": self.pet.especie,
-            "pet_edad": self.pet.edad,
+            "pet_edad": self.pet.edad,  
             "doctor_id": self.doctor_id,
             "date_time": self.date_time.strftime('%Y-%m-%d'),
             "time": self.time,
@@ -221,6 +221,7 @@ class MedicalRecord(db.Model):
     __tablename__ = 'medical_records'
     id = db.Column(db.Integer, primary_key=True)
     fecha = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    price = db.Column(db.Float, nullable=False, default=0.0)
     
     # --- Datos de Triaje (Toma de vitales) ---
     motivo = db.Column(db.String(200), nullable=False)
@@ -246,6 +247,7 @@ class MedicalRecord(db.Model):
         return {
             "id": self.id,
             "fecha": self.fecha.isoformat() if self.fecha else None,
+            "precio": self.price,
             "motivo": self.motivo,
             "peso": self.peso,
             "temperatura": self.temperatura,

@@ -484,6 +484,22 @@ export function StoreProvider({ children }) {
             }
         },
 
+        getExchangeRate: async () => {
+            const { store, dispatch } = getContext();
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/exchange-rate`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    dispatch({
+                        type: "set_exchange_rate",
+                        payload: data.rate // Guardamos solo el número, ej: 45.50
+                    });
+                }
+            } catch (error) {
+                console.error("Error cargando tasa BCV:", error);
+            }
+        },
+
     };
 
     return (

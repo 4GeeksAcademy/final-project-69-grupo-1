@@ -73,7 +73,7 @@ export const Login = () => {
                     <div className="card shadow-lg border-0 rounded-4">
                         <div className="card-body p-5">
                             <div className="text-center mb-4">
-                                <h2 className="fw-bold text-primary">PetHealth</h2>
+                                <h2 className="fw-bold text-primary">NexPetly</h2>
                                 <p className="text-muted small">Panel de Gestión Profesional</p>
                             </div>
 
