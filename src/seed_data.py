@@ -35,8 +35,9 @@ def seed():
             )
             doctor.set_password("doctor123")
             db.session.add(doctor)
+            db.session.flush() # Importante para poder asignarle citas abajo
 
-        # 3. Crear Cliente (¡CORREGIDO! Ahora pertenece a la clínica)
+        # 3. Crear Cliente (Ahora pertenece a la clínica)
         client = User.query.filter_by(email="cliente@test.com").first()
         if not client:
             client = User(
@@ -44,7 +45,7 @@ def seed():
                 full_name="Juan Pérez",
                 role=RoleEnum.CLIENTE,
                 is_active=True,
-                clinic_id=clinic.id # Este es el fix para que el doctor vea sus citas
+                clinic_id=clinic.id
             )
             client.set_password("cliente123")
             db.session.add(client)
@@ -73,38 +74,45 @@ def seed():
             created_pets.append(pet)
 
         # 5. Crear Citas a diferentes horas de HOY
-        
-        # Cita 1: Firulais (En 2 horas - Programada)
+        hoy = datetime.now(timezone.utc)
+
+        # Cita 1: Firulais (Programada a las 10:00)
         app1 = Appointment.query.filter_by(pet_id=created_pets[0].id).first()
         if not app1:
             db.session.add(Appointment(
-                date_time=datetime.now(timezone.utc) + timedelta(hours=2),
+                date_time=hoy,
+                time="10:00", # <--- FIX: Campo time agregado
                 status=AppointmentStatus.PROGRAMADA,
                 tipo="Consulta Médica",
                 clinic_id=clinic.id,
-                pet_id=created_pets[0].id
+                pet_id=created_pets[0].id,
+                doctor_id=doctor.id # <--- FIX: Asignada al doctor para que la pueda ver
             ))
 
-        # Cita 2: Luna (En 4 horas - Programada)
+        # Cita 2: Luna (Programada a las 14:00)
         app2 = Appointment.query.filter_by(pet_id=created_pets[1].id).first()
         if not app2:
             db.session.add(Appointment(
-                date_time=datetime.now(timezone.utc) + timedelta(hours=4),
+                date_time=hoy,
+                time="14:00", # <--- FIX: Campo time agregado
                 status=AppointmentStatus.PROGRAMADA,
                 tipo="Vacunación",
                 clinic_id=clinic.id,
-                pet_id=created_pets[1].id
+                pet_id=created_pets[1].id,
+                doctor_id=doctor.id # <--- FIX: Asignada al doctor
             ))
 
-        # Cita 3: Rex (Hace 1 hora - En Atención)
+        # Cita 3: Rex (En Atención a las 08:00)
         app3 = Appointment.query.filter_by(pet_id=created_pets[2].id).first()
         if not app3:
             db.session.add(Appointment(
-                date_time=datetime.now(timezone.utc) - timedelta(hours=1),
-                status=AppointmentStatus.EN_ATENCION, # Simulando que ya la empezaste a atender
+                date_time=hoy,
+                time="08:00", # <--- FIX: Campo time agregado
+                status=AppointmentStatus.EN_ATENCION,
                 tipo="Emergencia",
                 clinic_id=clinic.id,
-                pet_id=created_pets[2].id
+                pet_id=created_pets[2].id,
+                doctor_id=doctor.id # <--- FIX: Asignada al doctor
             ))
 
         db.session.commit()

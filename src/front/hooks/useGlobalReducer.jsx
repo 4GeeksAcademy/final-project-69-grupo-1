@@ -463,6 +463,26 @@ export function StoreProvider({ children }) {
                 return { success: false, message: "Error de conexión con el servidor" };
             }
         },
+        // Para la Historia #34
+        cancelAppointment: async (appointmentId) => {
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/appointments/${appointmentId}/cancel`, {
+                    method: "PATCH",
+                    headers: { "Authorization": `Bearer ${store.token || localStorage.getItem("token")}` }
+                });
+                if (resp.ok) {
+                    // Reutilizamos el reducer existente para actualizar la tabla visualmente
+                    dispatch({ type: "update_appointment_status", payload: { id: appointmentId, status: "CANCELADA" } });
+                    // Refrescamos la lista completa por seguridad
+                    actions.getUserAppointments();
+                    return true;
+                }
+                return false;
+            } catch (error) {
+                console.error("Error cancelando cita:", error);
+                return false;
+            }
+        },
 
     };
 
