@@ -139,6 +139,90 @@ export function StoreProvider({ children }) {
             return false;
         },
 
+        loadClinicServices: async (clinicId, active = true) => {
+            try {
+                const query = active ? '?active=true' : '?active=false';
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clinics/${clinicId}/services${query}`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    dispatch({ type: "set_clinic_services", payload: data });
+                    return true;
+                }
+            } catch (error) {
+                console.error("Error cargando servicios de clínica:", error);
+            }
+            return false;
+        },
+
+        createClinicService: async (clinicId, serviceData) => {
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/clinics/${clinicId}/services`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + store.token
+                    },
+                    body: JSON.stringify(serviceData)
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    dispatch({ type: "add_clinic_service", payload: data.service });
+                    return { success: true, service: data.service };
+                }
+                return { success: false, message: data.message };
+            } catch (error) {
+                console.error("Error creando servicio:", error);
+                return { success: false, message: "Error de conexión" };
+            }
+        },
+
+        updateClinicService: async (serviceId, serviceData) => {
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/services/${serviceId}`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + store.token
+                    },
+                    body: JSON.stringify(serviceData)
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    dispatch({ type: "update_clinic_service", payload: data.service });
+                    return { success: true, service: data.service };
+                }
+                return { success: false, message: data.message };
+            } catch (error) {
+                console.error("Error actualizando servicio:", error);
+                return { success: false, message: "Error de conexión" };
+            }
+        },
+
+        deleteClinicService: async (serviceId) => {
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/services/${serviceId}`, {
+                    method: "DELETE",
+                    headers: {
+                        "Authorization": "Bearer " + store.token
+                    }
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    dispatch({ type: "remove_clinic_service", payload: serviceId });
+                    return { success: true };
+                }
+                return { success: false, message: data.message };
+            } catch (error) {
+                console.error("Error eliminando servicio:", error);
+                return { success: false, message: "Error de conexión" };
+            }
+        },
+
         updateStaffStatus: async (userId, isActive) => {
             try {
                 const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users/${userId}/status`, {
@@ -240,7 +324,7 @@ export function StoreProvider({ children }) {
                     dispatch({ type: "add_payment", payload: data.payment });
                     dispatch({
                         type: "update_appointment_status",
-                        payload: { id: paymentData.appointment_id, status: "Completed" }
+                        payload: { id: paymentData.appointment_id, status: "COMPLETADA" }
                     });
                     return { success: true };
                 }
@@ -485,7 +569,6 @@ export function StoreProvider({ children }) {
         },
 
         getExchangeRate: async () => {
-            const { store, dispatch } = getContext();
             try {
                 const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/exchange-rate`);
                 if (resp.ok) {

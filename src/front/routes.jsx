@@ -64,7 +64,7 @@ export const router = createBrowserRouter(
       <Route path="/registro-sede" element={<RegistrationLanding />} />
       <Route path="/registro-empleado" element={<RegisterStaff />} />
       <Route path="/register-staff" element={<RegisterWithCode />} />
-      <Route path="/reception" element={<ReceptionistDashboard />} />
+      <Route path="/reception/dashboard" element={<ReceptionistDashboard />} />
 
       {/* RUTA DE SEGURIDAD (Solo debe ser accedida si hay un proceso de cambio pendiente) */}
       <Route path="/change-password" element={

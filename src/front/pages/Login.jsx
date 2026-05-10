@@ -50,6 +50,9 @@ export const Login = () => {
                 else if (data.user.role === "DOCTOR") {
                     navigate("/doctor/dashboard");
                 }
+                else if (data.user.role === "RECEPTIONIST") {
+                    navigate("/reception/dashboard");
+                }
                 else {
                     navigate("/");
                 }

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useGlobalReducer } from "../hooks/useGlobalReducer";
-import { PaymentModal } from "../components/PaymentModal"; // Importamos el modal anterior
+import { PaymentModal } from "../components/modals/PaymentModal"; // Importamos el modal anterior
 
 export const ReceptionistDashboard = () => {
     const { store, actions } = useGlobalReducer();
@@ -46,12 +46,12 @@ export const ReceptionistDashboard = () => {
                                             <span className="badge bg-info text-dark">{app.service_type}</span>
                                         </td>
                                         <td>
-                                            <span className={`badge ${app.status === 'Completed' ? 'bg-success' : 'bg-warning'}`}>
-                                                {app.status === 'Completed' ? 'Finalizada' : 'Pendiente'}
+                                            <span className={`badge ${app.status === 'COMPLETADA' ? 'bg-success' : app.status === 'CANCELADA' ? 'bg-danger' : 'bg-warning'}`}>
+                                                {app.status === 'COMPLETADA' ? 'Finalizada' : app.status === 'CANCELADA' ? 'Cancelada' : 'Pendiente'}
                                             </span>
                                         </td>
                                         <td className="text-center">
-                                            {app.status !== "Completed" ? (
+                                            {app.status !== "COMPLETADA" ? (
                                                 <button 
                                                     className="btn btn-sm btn-outline-success shadow-sm"
                                                     onClick={() => setSelectedApp(app)}
