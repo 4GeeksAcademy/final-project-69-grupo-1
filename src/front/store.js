@@ -10,6 +10,8 @@ export const initialStore = () => {
     clinics: [],
     clinicRequests: [],
     staff: [],
+    clinicServices: [],
+    payments: [],
     userPets: [],
     userAppointments: [],
     appointments: [],
@@ -40,6 +42,34 @@ export default function storeReducer(store, action) {
       return {
         ...store,
         staff: action.payload,
+      };
+
+    case "set_clinic_services":
+      return {
+        ...store,
+        clinicServices: action.payload,
+      };
+
+    case "add_clinic_service":
+      return {
+        ...store,
+        clinicServices: [...store.clinicServices, action.payload],
+      };
+
+    case "update_clinic_service":
+      return {
+        ...store,
+        clinicServices: store.clinicServices.map((service) =>
+          service.id === action.payload.id ? action.payload : service,
+        ),
+      };
+
+    case "remove_clinic_service":
+      return {
+        ...store,
+        clinicServices: store.clinicServices.filter(
+          (service) => service.id !== action.payload,
+        ),
       };
 
     case "update_staff_member_locally":

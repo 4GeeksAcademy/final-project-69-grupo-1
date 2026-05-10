@@ -6,6 +6,8 @@ import enum
 db = SQLAlchemy()
 
 # Enums para estandarizar estados y roles
+
+
 class RoleEnum(enum.Enum):
     SUPER_ADMIN = 'SUPER_ADMIN'
     CLINIC_ADMIN = 'CLINIC_ADMIN'
@@ -14,16 +16,19 @@ class RoleEnum(enum.Enum):
     RECEPTIONIST = 'RECEPTIONIST'
     CLIENTE = 'CLIENTE'
 
+
 class AppointmentStatus(enum.Enum):
     PROGRAMADA = 'PROGRAMADA'
     EN_ATENCION = 'EN_ATENCION'
     COMPLETADA = 'COMPLETADA'
     CANCELADA = 'CANCELADA'
 
-class RequestStatus(enum.Enum):       
+
+class RequestStatus(enum.Enum):
     PENDING = 'PENDING'
     APPROVED = 'APPROVED'
     REJECTED = 'REJECTED'
+
 
 class PaymentMethod(enum.Enum):
     EFECTIVO = 'EFECTIVO'
@@ -31,19 +36,22 @@ class PaymentMethod(enum.Enum):
     PAGO_MOVIL = 'PAGO_MOVIL'
     ZELLE = 'ZELLE'
 
+
 class ClinicRequest(db.Model):
     __tablename__ = 'clinic_requests'
     id = db.Column(db.Integer, primary_key=True)
-    tipo_solicitud = db.Column(db.String(20), nullable=False) # 'EMPRESA' o 'INDEPENDIENTE'
-    
+    # 'EMPRESA' o 'INDEPENDIENTE'
+    tipo_solicitud = db.Column(db.String(20), nullable=False)
+
     # Datos de la sede
     nombre_clinica = db.Column(db.String(120), nullable=False)
-    rif_empresa = db.Column(db.String(50), nullable=True) # Solo para Empresa
-    cedula_identidad = db.Column(db.String(50), nullable=False) # Para Indep o Admin de Empresa
+    rif_empresa = db.Column(db.String(50), nullable=True)  # Solo para Empresa
+    # Para Indep o Admin de Empresa
+    cedula_identidad = db.Column(db.String(50), nullable=False)
     direccion = db.Column(db.String(255), nullable=False)
     telefono = db.Column(db.String(50), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    
+
     # Datos del Admin (solo si es Empresa)
     nombre_admin = db.Column(db.String(120), nullable=True)
 
@@ -55,18 +63,19 @@ class ClinicRequest(db.Model):
     url_titulo_profesional = db.Column(db.String(255), nullable=True)
 
     status = db.Column(db.Enum(RequestStatus), default=RequestStatus.PENDING)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(
+        db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     def serialize(self):
         return {
             "id": self.id,
             "tipo": self.tipo_solicitud,
             "clinica": self.nombre_clinica,
-            "rif_empresa" : self.rif_empresa,
-            "cedula_admin" : self.cedula_identidad,
+            "rif_empresa": self.rif_empresa,
+            "cedula_admin": self.cedula_identidad,
             "email": self.email,
             "nombre_admin": self.nombre_admin,
-            "direccion" : self.direccion,
+            "direccion": self.direccion,
             "telefono": self.telefono,
             "status": self.status.value if self.status else "PENDING",
             "docs": {
@@ -75,8 +84,9 @@ class ClinicRequest(db.Model):
                 "mercantil": self.url_registro_mercantil,
                 "sanitario": self.url_permiso_sanitario,
                 "titulo": self.url_titulo_profesional
-             }
+            }
         }
+
 
 class Clinic(db.Model):
     __tablename__ = 'clinics'
@@ -85,17 +95,26 @@ class Clinic(db.Model):
     nombre = db.Column(db.String(120), nullable=False)
     rif = db.Column(db.String(50), unique=True, nullable=False)
     ubicacion = db.Column(db.String(255), nullable=False)
-    telefono = db.Column(db.String(50), nullable=True) # Nuevo campo de contacto
-    correo = db.Column(db.String(120), nullable=True)  # Nuevo campo de contacto
-    is_active = db.Column(db.Boolean, default=True) 
-    suspension_reason = db.Column(db.String(255), nullable=True) # Motivo de suspension que hablamos antes
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    # Nuevo campo de contacto
+    telefono = db.Column(db.String(50), nullable=True)
+    # Nuevo campo de contacto
+    correo = db.Column(db.String(120), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    # Motivo de suspension que hablamos antes
+    suspension_reason = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(
+        db.DateTime, default=lambda: datetime.now(timezone.utc))
     staff_code = db.Column(db.String(20), unique=True, nullable=True)
-    
+
     # Relaciones con borrado en cascada para poder eliminar clínicas
-    users = db.relationship('User', back_populates='clinic', cascade="all, delete",foreign_keys='User.clinic_id')
-    appointments = db.relationship('Appointment', back_populates='clinic', cascade="all, delete")
-    payments = db.relationship('Payment', back_populates='clinic', cascade="all, delete")
+    users = db.relationship('User', back_populates='clinic',
+                            cascade="all, delete", foreign_keys='User.clinic_id')
+    appointments = db.relationship(
+        'Appointment', back_populates='clinic', cascade="all, delete")
+    payments = db.relationship(
+        'Payment', back_populates='clinic', cascade="all, delete")
+    services = db.relationship(
+        'Service', back_populates='clinic', cascade="all, delete")
 
     def serialize(self):
         return {
@@ -108,8 +127,9 @@ class Clinic(db.Model):
             "correo": self.correo,
             "is_active": self.is_active,
             "suspension_reason": self.suspension_reason,
-            "staff_code": self.staff_code   
+            "staff_code": self.staff_code
         }
+
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -117,23 +137,31 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     full_name = db.Column(db.String(120), nullable=False)
-    role = db.Column(db.Enum(RoleEnum), default=RoleEnum.CLIENTE, nullable=False)
-    is_active = db.Column(db.Boolean, default=True, nullable=False) # Nuevo: para vetar doctores o clientes
-    clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.id'), nullable=True) 
-    staff_cod = db.Column(db.String(20), db.ForeignKey('clinics.staff_code'), nullable=True)
-    must_change_password = db.Column(db.Boolean(), nullable=False, default=False)
-    
+    role = db.Column(db.Enum(RoleEnum),
+                     default=RoleEnum.CLIENTE, nullable=False)
+    # Nuevo: para vetar doctores o clientes
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    clinic_id = db.Column(db.Integer, db.ForeignKey(
+        'clinics.id'), nullable=True)
+    staff_cod = db.Column(db.String(20), db.ForeignKey(
+        'clinics.staff_code'), nullable=True)
+    must_change_password = db.Column(
+        db.Boolean(), nullable=False, default=False)
+
     # Relaciones
-    clinic = db.relationship('Clinic', back_populates='users',foreign_keys=[clinic_id])
-    pets = db.relationship('Pet', back_populates='owner', cascade="all, delete")
-    appointments_as_doctor = db.relationship('Appointment', back_populates='doctor')
+    clinic = db.relationship(
+        'Clinic', back_populates='users', foreign_keys=[clinic_id])
+    pets = db.relationship('Pet', back_populates='owner',
+                           cascade="all, delete")
+    appointments_as_doctor = db.relationship(
+        'Appointment', back_populates='doctor')
     medical_records = db.relationship('MedicalRecord', back_populates='doctor')
     payments_processed = db.relationship('Payment', back_populates='cashier')
 
     @property
     def password(self):
         raise AttributeError('La contraseña no es un atributo legible')
-    
+
     @password.setter
     def password(self, password):
         # Cada vez que hagas user.password = "nueva_clave", se ejecutará esto:
@@ -158,19 +186,22 @@ class User(db.Model):
             "staff_code": self.clinic.staff_code if self.clinic else "No asignado"
         }
 
+
 class Pet(db.Model):
     __tablename__ = 'pets'
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(80), nullable=False)
-    especie = db.Column(db.String(50), nullable=False) 
+    especie = db.Column(db.String(50), nullable=False)
     raza = db.Column(db.String(80), nullable=True)
     edad = db.Column(db.Integer, nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
     # Relaciones
     owner = db.relationship('User', back_populates='pets')
-    appointments = db.relationship('Appointment', back_populates='pet', cascade="all, delete")
-    medical_history = db.relationship('MedicalRecord', back_populates='pet', cascade="all, delete")
+    appointments = db.relationship(
+        'Appointment', back_populates='pet', cascade="all, delete")
+    medical_history = db.relationship(
+        'MedicalRecord', back_populates='pet', cascade="all, delete")
 
     def serialize(self):
         return {
@@ -182,24 +213,57 @@ class Pet(db.Model):
             "owner_email": self.owner.email if self.owner else None
         }
 
+
+class Service(db.Model):
+    __tablename__ = 'services'
+    id = db.Column(db.Integer, primary_key=True)
+    clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.id'), nullable=False)
+    name = db.Column(db.String(120), nullable=False)
+    price_usd = db.Column(db.Float, nullable=False, default=0.0)
+    description = db.Column(db.String(255), nullable=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    clinic = db.relationship('Clinic', back_populates='services')
+    appointments = db.relationship('Appointment', back_populates='service', cascade='all, delete')
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "clinic_id": self.clinic_id,
+            "name": self.name,
+            "price_usd": self.price_usd,
+            "description": self.description,
+            "is_active": self.is_active
+        }
+
+
 class Appointment(db.Model):
     __tablename__ = 'appointments'
     id = db.Column(db.Integer, primary_key=True)
     date_time = db.Column(db.DateTime, nullable=False)
     time = db.Column(db.String(5), nullable=False)
-    status = db.Column(db.Enum(AppointmentStatus), default=AppointmentStatus.PROGRAMADA)
-    tipo = db.Column(db.String(50), nullable=False) 
-    
-    clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.id'), nullable=False)
+    status = db.Column(db.Enum(AppointmentStatus),
+                       default=AppointmentStatus.PROGRAMADA)
+    tipo = db.Column(db.String(50), nullable=False)
+    service_id = db.Column(db.Integer, db.ForeignKey('services.id'), nullable=True)
+    service_name = db.Column(db.String(120), nullable=True)
+    service_price_usd = db.Column(db.Float, nullable=True, default=0.0)
+
+    clinic_id = db.Column(db.Integer, db.ForeignKey(
+        'clinics.id'), nullable=False)
     pet_id = db.Column(db.Integer, db.ForeignKey('pets.id'), nullable=False)
-    doctor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True) 
-    payment = db.relationship('Payment', back_populates='appointment', uselist=False, cascade="all, delete")
+    doctor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    payment = db.relationship(
+        'Payment', back_populates='appointment', uselist=False, cascade="all, delete")
 
     # Relaciones
     clinic = db.relationship('Clinic', back_populates='appointments')
     pet = db.relationship('Pet', back_populates='appointments')
     doctor = db.relationship('User', back_populates='appointments_as_doctor')
-    record = db.relationship('MedicalRecord', back_populates='appointment', uselist=False, cascade="all, delete")
+    service = db.relationship('Service', back_populates='appointments')
+    record = db.relationship(
+        'MedicalRecord', back_populates='appointment', uselist=False, cascade="all, delete")
 
     def serialize(self):
         return {
@@ -207,35 +271,47 @@ class Appointment(db.Model):
             "clinic_id": self.clinic_id,
             "pet_id": self.pet_id,
             "pet_name": self.pet.nombre if self.pet else "Desconocido",
+            "owner_name": self.pet.owner.full_name if self.pet and self.pet.owner else None,
             "pet_raza": self.pet.raza,
             "pet_especie": self.pet.especie,
             "pet_edad": self.pet.edad,
             "doctor_id": self.doctor_id,
-            "date_time": self.date_time.strftime('%Y-%m-%d'),
+            "date_time": self.date_time.strftime('%Y-%m-%d') if self.date_time else None,
             "time": self.time,
             "tipo": self.tipo,
+            "service_id": self.service_id,
+            "service_name": self.service_name or self.tipo,
+            "service_price_usd": self.service_price_usd or 0.0,
+            "service_type": self.service_name or self.tipo,
             "status": self.status.value
         }
+
 
 class MedicalRecord(db.Model):
     __tablename__ = 'medical_records'
     id = db.Column(db.Integer, primary_key=True)
     fecha = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    
+    price = db.Column(db.Float, nullable=False, default=0.0)
+
     # --- Datos de Triaje (Toma de vitales) ---
     motivo = db.Column(db.String(200), nullable=False)
-    peso = db.Column(db.Float, nullable=True) # Guardado en Kilogramos (ej: 12.5)
-    temperatura = db.Column(db.Float, nullable=True) # Guardado en °C (ej: 38.5)
-    
+    # Guardado en Kilogramos (ej: 12.5)
+    peso = db.Column(db.Float, nullable=True)
+    # Guardado en °C (ej: 38.5)
+    temperatura = db.Column(db.Float, nullable=True)
+
     # --- Evaluación Médica ---
-    diagnostico = db.Column(db.Text, nullable=False) 
+    diagnostico = db.Column(db.Text, nullable=False)
     tratamiento = db.Column(db.Text, nullable=False)
-    examenes = db.Column(db.Text, nullable=True) # Qué pruebas de laboratorio se mandan
-    
+    # Qué pruebas de laboratorio se mandan
+    examenes = db.Column(db.Text, nullable=True)
+
     # --- Relaciones ---
     pet_id = db.Column(db.Integer, db.ForeignKey('pets.id'), nullable=False)
-    doctor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    appointment_id = db.Column(db.Integer, db.ForeignKey('appointments.id'), nullable=True)
+    doctor_id = db.Column(
+        db.Integer, db.ForeignKey('users.id'), nullable=False)
+    appointment_id = db.Column(db.Integer, db.ForeignKey(
+        'appointments.id'), nullable=True)
 
     # Relaciones (se mantienen igual)
     pet = db.relationship('Pet', back_populates='medical_history')
@@ -246,6 +322,7 @@ class MedicalRecord(db.Model):
         return {
             "id": self.id,
             "fecha": self.fecha.isoformat() if self.fecha else None,
+            "precio": self.price,
             "motivo": self.motivo,
             "peso": self.peso,
             "temperatura": self.temperatura,
@@ -255,15 +332,20 @@ class MedicalRecord(db.Model):
             "doctor_name": self.doctor.full_name if self.doctor else "Desconocido"
         }
 
+
 class Payment(db.Model):
     __tablename__ = 'payments'
     id = db.Column(db.Integer, primary_key=True)
-    clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.id'), nullable=False)
-    appointment_id = db.Column(db.Integer, db.ForeignKey('appointments.id'), unique=True, nullable=False)
-    cashier_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    clinic_id = db.Column(db.Integer, db.ForeignKey(
+        'clinics.id'), nullable=False)
+    appointment_id = db.Column(db.Integer, db.ForeignKey(
+        'appointments.id'), unique=True, nullable=False)
+    cashier_id = db.Column(
+        db.Integer, db.ForeignKey('users.id'), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     payment_method = db.Column(db.Enum(PaymentMethod), nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(
+        db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     clinic = db.relationship('Clinic', back_populates='payments')
     appointment = db.relationship('Appointment', back_populates='payment')

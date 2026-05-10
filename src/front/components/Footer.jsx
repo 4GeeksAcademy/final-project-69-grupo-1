@@ -46,7 +46,7 @@ export const Footer = () => (
 			{/* Copyright */}
 			<div className="text-center mt-4">
 				<p className="text-muted small mb-0">
-					© 2026 PetHealth & Spa. Todos los derechos reservados. <br />
+					© 2026 NexPetly. Todos los derechos reservados. <br />
 					Desarrollado con ❤️ para los mejores amigos del hombre.
 				</p>
 			</div>

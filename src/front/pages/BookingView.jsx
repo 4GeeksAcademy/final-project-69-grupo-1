@@ -13,7 +13,8 @@ export const BookingView = () => {
 
     const [selection, setSelection] = useState({
         pet_id: "",
-        service_type: "Consulta Médica",
+        service_id: "",
+        service_price_usd: 0,
         date: "",
         time: "",
         doctor_id: ""
@@ -58,7 +59,16 @@ export const BookingView = () => {
 
     useEffect(() => {
         getMyPets();
-    }, []);
+        if (store.user?.clinic_id) {
+            actions.loadClinicServices(store.user.clinic_id, true);
+        }
+    }, [store.user?.clinic_id]);
+
+    useEffect(() => {
+        if (store.user?.clinic_id) {
+            actions.loadClinicServices(store.user.clinic_id);
+        }
+    }, [store.user?.clinic_id]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -73,8 +83,8 @@ export const BookingView = () => {
     const handleSumbitBooking = async (e) => {
         e.preventDefault();
 
-        if (!selection.time || !selection.doctor_id) {
-            return Swal.fire("Atención", "Debes seleccionar un horario y un especialista.", "warning");
+        if (!selection.service_id || !selection.time || !selection.doctor_id) {
+            return Swal.fire("Atención", "Debes seleccionar un servicio, un horario y un especialista.", "warning");
         }
 
         setLoading(true);
@@ -128,16 +138,41 @@ export const BookingView = () => {
                                             <label className="form-label fw-bold text-secondary small text-uppercase">2. Servicio Requerido</label>
                                             <select
                                                 className="form-select form-select-lg bg-light border-0 shadow-none"
-                                                name="service_type"
-                                                value={selection.service_type}
-                                                onChange={handleInputChange}
+                                                name="service_id"
+                                                value={selection.service_id}
+                                                onChange={(e) => {
+                                                    const serviceId = e.target.value;
+                                                    const service = store.clinicServices.find(s => String(s.id) === serviceId);
+                                                    setSelection(prev => ({
+                                                        ...prev,
+                                                        service_id: serviceId,
+                                                        service_price_usd: service ? service.price_usd : 0
+                                                    }));
+                                                }}
                                             >
-                                                <option value="Consulta Médica">🩺 Consulta Médica</option>
-                                                <option value="Barbería">✂️ Peluquería / Spa</option>
-                                                <option value="Vacunación">💉 Vacunación</option>
+                                                <option value="">Selecciona un servicio...</option>
+                                                {store.clinicServices.map(service => (
+                                                    <option key={service.id} value={service.id}>
+                                                        {service.name} - ${service.price_usd.toFixed(2)}
+                                                    </option>
+                                                ))}
                                             </select>
+                                            {store.clinicServices.length === 0 && (
+                                                <small className="text-muted">No hay servicios activos en esta clínica.</small>
+                                            )}
                                         </div>
                                     </div>
+
+                                    {selection.service_id && (
+                                        <div className="col-12">
+                                            <div className="alert alert-secondary py-3 rounded-4">
+                                                <div className="d-flex justify-content-between align-items-center">
+                                                    <span className="small text-uppercase fw-bold text-muted">Precio del Servicio</span>
+                                                    <span className="fs-5 fw-bold">${Number(selection.service_price_usd).toFixed(2)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div className="col-12 border-top pt-4">
                                         {/* Paso 3 */}

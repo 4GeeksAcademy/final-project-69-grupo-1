@@ -8,9 +8,10 @@ import string
 import os
 import cloudinary
 import cloudinary.uploader
+import requests
 from datetime import datetime, timedelta, timezone
 from flask import Flask, request, jsonify, url_for, Blueprint
-from api.models import db, User, Clinic, Appointment, Pet, MedicalRecord, ClinicRequest, RoleEnum, RequestStatus, AppointmentStatus
+from api.models import db, User, Clinic, Service, Appointment, Pet, MedicalRecord, ClinicRequest, RoleEnum, RequestStatus, AppointmentStatus
 from api.utils import generate_sitemap, APIException, generate_temp_password, roles_required, setup_initial_admins, generate_staff_code, send_registration_notification, send_approval_email, send_rejection_email, send_staff_invitation_email, send_welcome_staff_email
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, get_jwt, decode_token
 from flask_cors import CORS
@@ -435,6 +436,81 @@ def get_clinic_staff(clinic_id):
     staff = User.query.filter_by(clinic_id=clinic_id).all()
     return jsonify([member.serialize() for member in staff]), 200
 
+@api.route('/clinics/<int:clinic_id>/services', methods=['GET'])
+def get_clinic_services(clinic_id):
+    active_only = request.args.get('active', 'true').lower() in ['true', '1', 'yes']
+    query = Service.query.filter_by(clinic_id=clinic_id)
+    if active_only:
+        query = query.filter_by(is_active=True)
+    services = query.order_by(Service.name.asc()).all()
+    return jsonify([service.serialize() for service in services]), 200
+
+@api.route('/clinics/<int:clinic_id>/services', methods=['POST'])
+@jwt_required()
+@roles_required(RoleEnum.CLINIC_ADMIN, RoleEnum.INDEPENDENT_VET)
+def create_clinic_service(clinic_id):
+    claims = get_jwt()
+    if claims.get('clinic_id') != clinic_id:
+        return jsonify({"message": "No tienes permiso para esta clínica"}), 403
+
+    data = request.json or {}
+    name = data.get('name')
+    price_usd = data.get('price_usd')
+    description = data.get('description')
+
+    if not name or price_usd is None:
+        return jsonify({"message": "El nombre y el precio en USD son obligatorios"}), 400
+
+    try:
+        price_usd = float(price_usd)
+    except (TypeError, ValueError):
+        return jsonify({"message": "El precio debe ser un número válido"}), 400
+
+    service = Service(
+        clinic_id=clinic_id,
+        name=name,
+        price_usd=price_usd,
+        description=description,
+        is_active=True
+    )
+    db.session.add(service)
+    db.session.commit()
+
+    return jsonify({"message": "Servicio creado exitosamente", "service": service.serialize()}), 201
+
+@api.route('/services/<int:service_id>', methods=['PUT', 'DELETE'])
+@jwt_required()
+@roles_required(RoleEnum.CLINIC_ADMIN, RoleEnum.INDEPENDENT_VET)
+def update_or_delete_service(service_id):
+    service = Service.query.get(service_id)
+    if not service:
+        return jsonify({"message": "Servicio no encontrado"}), 404
+
+    claims = get_jwt()
+    if service.clinic_id != claims.get('clinic_id'):
+        return jsonify({"message": "No tienes permiso para gestionar este servicio"}), 403
+
+    if request.method == 'DELETE':
+        db.session.delete(service)
+        db.session.commit()
+        return jsonify({"message": "Servicio eliminado correctamente"}), 200
+
+    data = request.json or {}
+    if 'name' in data:
+        service.name = data.get('name')
+    if 'price_usd' in data:
+        try:
+            service.price_usd = float(data.get('price_usd'))
+        except (TypeError, ValueError):
+            return jsonify({"message": "El precio debe ser un número válido"}), 400
+    if 'description' in data:
+        service.description = data.get('description')
+    if 'is_active' in data:
+        service.is_active = bool(data.get('is_active'))
+
+    db.session.commit()
+    return jsonify({"message": "Servicio actualizado", "service": service.serialize()}), 200
+
 # 2. Activar/Vetar empleado
 
 
@@ -812,12 +888,17 @@ def create_appointment():
         doctor_id = int(data.get("doctor_id"))
         date_str = data.get("date")  # Esperado: YYYY-MM-DD
         time_str = data.get("time")  # Esperado: HH:mm
-        service_type = data.get("service_type")
+        service_id = data.get("service_id")
     except (TypeError, ValueError):
         return jsonify({"message": "Los IDs de mascota y doctor deben ser números"}), 400
 
-    if not all([pet_id, doctor_id, date_str, time_str, service_type]):
+    if not all([pet_id, doctor_id, date_str, time_str, service_id]):
         return jsonify({"message": "Faltan datos obligatorios (mascota, doctor, fecha, hora o servicio)"}), 400
+
+    try:
+        service_id = int(service_id)
+    except (TypeError, ValueError):
+        return jsonify({"message": "El ID de servicio debe ser un número válido"}), 400
 
     # 2. Procesar la fecha
     try:
@@ -826,7 +907,12 @@ def create_appointment():
     except ValueError:
         return jsonify({"message": "Formato de fecha inválido. Use YYYY-MM-DD"}), 400
 
-    # 3. VERIFICACIÓN DE DISPONIBILIDAD (Aquí es donde daba el error)
+    # 3. Validar servicio seleccionado
+    service = Service.query.get(service_id)
+    if not service or service.clinic_id != clinic_id or not service.is_active:
+        return jsonify({"message": "Servicio inválido o no disponible para esta clínica"}), 400
+
+    # 4. VERIFICACIÓN DE DISPONIBILIDAD (Aquí es donde daba el error)
     # Filtramos por doctor, fecha, hora y que la cita NO esté cancelada
     conflict = Appointment.query.filter(
         Appointment.doctor_id == doctor_id,
@@ -838,14 +924,21 @@ def create_appointment():
     if conflict:
         return jsonify({"message": "El médico ya tiene una cita en ese horario"}), 409
 
-    # 4. Crear la cita
+    # 4. Validar doctor y crear la cita
+    doctor = User.query.get(doctor_id)
+    if not doctor or doctor.clinic_id != clinic_id:
+        return jsonify({"message": "El médico seleccionado no pertenece a esta clínica"}), 400
+
     new_appointment = Appointment(
         clinic_id=clinic_id,
         pet_id=pet_id,
         doctor_id=doctor_id,
         date_time=appointment_date,
         time=time_str,
-        tipo=service_type,
+        tipo=service.name,
+        service_id=service.id,
+        service_name=service.name,
+        service_price_usd=service.price_usd,
         status=AppointmentStatus.PROGRAMADA
     )
 
@@ -882,24 +975,66 @@ def register_payment():
     data = request.json
     appointment_id = data.get("appointment_id")
 
-    # 1. Validar existencia de la cita
     appointment = Appointment.query.get(appointment_id)
     if not appointment:
         return jsonify({"message": "Cita no encontrada"}), 404
 
-    # 2. Registrar el pago y cerrar la cita
+    claims = get_jwt()
+    if appointment.clinic_id != claims.get("clinic_id"):
+        return jsonify({"message": "No tienes permiso para procesar esta cita"}), 403
+
+    if appointment.status == AppointmentStatus.CANCELADA:
+        return jsonify({"message": "No se puede registrar el pago de una cita cancelada"}), 400
+
+    if appointment.payment is not None:
+        return jsonify({"message": "Esta cita ya tiene un pago registrado"}), 409
+
+    amount = data.get("monto") or data.get("amount")
+    payment_method_raw = data.get("metodo_pago") or data.get("payment_method")
+    transaction_id = data.get("transaction_id")
+
+    if amount is None:
+        return jsonify({"message": "El monto del pago es obligatorio"}), 400
+
+    try:
+        amount = float(amount)
+    except (TypeError, ValueError):
+        return jsonify({"message": "El monto debe ser un número válido"}), 400
+
+    if not payment_method_raw:
+        return jsonify({"message": "El método de pago es obligatorio"}), 400
+
+    payment_method_map = {
+        "Efectivo": "EFECTIVO",
+        "EFECTIVO": "EFECTIVO",
+        "Punto de Venta": "PUNTO_DE_VENTA",
+        "PUNTO_DE_VENTA": "PUNTO_DE_VENTA",
+        "Pago Móvil": "PAGO_MOVIL",
+        "Pago Movil": "PAGO_MOVIL",
+        "PAGO_MOVIL": "PAGO_MOVIL",
+        "Zelle": "ZELLE",
+        "ZELLE": "ZELLE"
+    }
+
+    payment_method_key = payment_method_map.get(payment_method_raw.strip())
+    if not payment_method_key:
+        return jsonify({"message": "Método de pago inválido"}), 400
+
+    try:
+        payment_method = PaymentMethod(payment_method_key)
+    except ValueError:
+        return jsonify({"message": "Método de pago inválido"}), 400
+
     try:
         new_payment = Payment(
             appointment_id=appointment_id,
-            monto=data.get("monto"),
-            # Efectivo, Punto, Zelle, etc [cite: 144]
-            metodo_pago=data.get("metodo_pago"),
-            transaction_id=data.get("transaction_id"),
-            clinic_id=appointment.clinic_id
+            clinic_id=appointment.clinic_id,
+            cashier_id=int(get_jwt_identity()),
+            amount=amount,
+            payment_method=payment_method
         )
 
-        # Cambio automático de estado
-        appointment.status = "Completed"
+        appointment.status = AppointmentStatus.COMPLETADA
 
         db.session.add(new_payment)
         db.session.commit()
@@ -1188,25 +1323,45 @@ def get_available_slots():
     }), 200
 
 # --- ENDPOINT PARA QUE EL CLIENTE CANCELE SU CITA (Historia #34) ---
+
+
 @api.route('/appointments/<int:appointment_id>/cancel', methods=['PATCH'])
 @jwt_required()
 @roles_required(RoleEnum.CLIENTE)
 def cancel_appointment(appointment_id):
     user_id = int(get_jwt_identity())
     appointment = Appointment.query.get(appointment_id)
-    
+
     if not appointment:
         return jsonify({"message": "Cita no encontrada"}), 404
-        
+
     # Seguridad: Solo el dueño de la mascota puede cancelar la cita
     if appointment.pet.user_id != user_id:
         return jsonify({"message": "No tienes permiso para cancelar esta cita"}), 403
-        
+
     # Solo se pueden cancelar citas PROGRAMADAS
     if appointment.status != AppointmentStatus.PROGRAMADA:
         return jsonify({"message": "Solo puedes cancelar citas que estén programadas"}), 400
-        
+
     appointment.status = AppointmentStatus.CANCELADA
     db.session.commit()
-    
+
     return jsonify({"message": "Cita cancelada con éxito"}), 200
+
+
+@api.route('/exchange-rate', methods=['GET'])
+def get_exchange_rate():
+    try:
+        # Llamada a DolarAPI para obtener solo el BCV
+        response = requests.get("https://ve.dolarapi.com/v1/dolares/oficial")
+
+        if response.status_code == 200:
+            data = response.json()
+            return jsonify({
+                "rate": data['promedio'],  # Este es el valor del dólar
+                "last_update": data['fechaActualizacion']
+            }), 200
+
+        return jsonify({"message": "No se pudo obtener la tasa"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
