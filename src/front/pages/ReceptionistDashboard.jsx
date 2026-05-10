@@ -46,20 +46,29 @@ export const ReceptionistDashboard = () => {
                                             <span className="badge bg-info text-dark">{app.service_type}</span>
                                         </td>
                                         <td>
-                                            <span className={`badge ${app.status === 'COMPLETADA' ? 'bg-success' : app.status === 'CANCELADA' ? 'bg-danger' : 'bg-warning'}`}>
-                                                {app.status === 'COMPLETADA' ? 'Finalizada' : app.status === 'CANCELADA' ? 'Cancelada' : 'Pendiente'}
+                                            <span className={`badge ${app.status === 'COMPLETADA' ? 'bg-success' :
+                                                    app.status === 'CANCELADA' ? 'bg-danger' :
+                                                        app.status === 'PENDIENTE_PAGO' ? 'bg-info text-dark' :
+                                                            'bg-warning text-dark'
+                                                }`}>
+                                                {app.status === 'COMPLETADA' ? 'Finalizada' :
+                                                    app.status === 'CANCELADA' ? 'Cancelada' :
+                                                        app.status === 'PENDIENTE_PAGO' ? 'Pendiente de pago' :
+                                                            'Pendiente'}
                                             </span>
                                         </td>
                                         <td className="text-center">
-                                            {app.status !== "COMPLETADA" ? (
-                                                <button 
+                                            {app.status === "PENDIENTE_PAGO" ? (
+                                                <button
                                                     className="btn btn-sm btn-outline-success shadow-sm"
                                                     onClick={() => setSelectedApp(app)}
                                                 >
                                                     <i className="fas fa-cash-register me-1"></i> Cobrar
                                                 </button>
-                                            ) : (
+                                            ) : app.status === "COMPLETADA" ? (
                                                 <span className="text-success small fw-bold">Pagado ✓</span>
+                                            ) : (
+                                                <span className="text-muted small">No disponible</span>
                                             )}
                                         </td>
                                     </tr>
@@ -79,12 +88,12 @@ export const ReceptionistDashboard = () => {
 
             {/* Modal de Pago - Se abre solo si hay una cita seleccionada */}
             {selectedApp && (
-                <PaymentModal 
-                    appointment={selectedApp} 
+                <PaymentModal
+                    appointment={selectedApp}
                     onClose={() => {
                         setSelectedApp(null);
                         actions.loadReceptionAppointments(); // Refrescar lista tras el pago
-                    }} 
+                    }}
                 />
             )}
         </div>

@@ -4,7 +4,7 @@ import { useGlobalReducer } from "../../hooks/useGlobalReducer";
 export const PaymentModal = ({ appointment, onClose }) => {
     const { store, actions } = useGlobalReducer();
     const [formData, setFormData] = useState({ 
-        monto: appointment.price || "", // Asumimos que la cita tiene un precio en $
+        monto: appointment.service_price_usd || "", // Asumimos que la cita tiene un precio en $
         metodo_pago: "Efectivo", 
         transaction_id: "" 
     });

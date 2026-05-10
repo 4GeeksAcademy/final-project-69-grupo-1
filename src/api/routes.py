@@ -11,8 +11,8 @@ import cloudinary.uploader
 import requests
 from datetime import datetime, timedelta, timezone
 from flask import Flask, request, jsonify, url_for, Blueprint
-from api.models import db, User, Clinic, Service, Appointment, Pet, MedicalRecord, ClinicRequest, RoleEnum, RequestStatus, AppointmentStatus
-from api.utils import generate_sitemap, APIException, generate_temp_password, roles_required, setup_initial_admins, generate_staff_code, send_registration_notification, send_approval_email, send_rejection_email, send_staff_invitation_email, send_welcome_staff_email
+from api.models import db, User, Clinic, Service, Appointment, Pet, MedicalRecord, ClinicRequest, RoleEnum, RequestStatus, AppointmentStatus, PaymentMethod, Payment
+from api.utils import generate_sitemap, APIException, generate_temp_password, roles_required, setup_initial_admins, generate_staff_code, send_registration_notification, send_approval_email, send_rejection_email, send_staff_invitation_email, send_welcome_staff_email, send_password_reset_email
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, get_jwt, decode_token
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
@@ -75,6 +75,27 @@ def login():
             })
         return jsonify({"token": access_token, "user": user.serialize()}), 200
     return jsonify({"message": "Email o contraseña incorrectos"}), 401
+
+
+@api.route('/password-reset-request', methods=['POST'])
+def password_reset_request():
+    data = request.json or {}
+    email = data.get("email")
+
+    if not email:
+        return jsonify({"message": "El correo es obligatorio."}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if user:
+        temp_password = generate_temp_password()
+        user.set_password(temp_password)
+        user.must_change_password = True
+        db.session.commit()
+        send_password_reset_email(user.email, user.full_name, temp_password)
+
+    return jsonify({
+        "message": "Si el correo existe en el sistema, recibirás instrucciones para restablecer tu contraseña."
+    }), 200
 
 
 @api.route('/me', methods=['GET'])
@@ -436,14 +457,17 @@ def get_clinic_staff(clinic_id):
     staff = User.query.filter_by(clinic_id=clinic_id).all()
     return jsonify([member.serialize() for member in staff]), 200
 
+
 @api.route('/clinics/<int:clinic_id>/services', methods=['GET'])
 def get_clinic_services(clinic_id):
-    active_only = request.args.get('active', 'true').lower() in ['true', '1', 'yes']
+    active_only = request.args.get('active', 'true').lower() in [
+        'true', '1', 'yes']
     query = Service.query.filter_by(clinic_id=clinic_id)
     if active_only:
         query = query.filter_by(is_active=True)
     services = query.order_by(Service.name.asc()).all()
     return jsonify([service.serialize() for service in services]), 200
+
 
 @api.route('/clinics/<int:clinic_id>/services', methods=['POST'])
 @jwt_required()
@@ -477,6 +501,7 @@ def create_clinic_service(clinic_id):
     db.session.commit()
 
     return jsonify({"message": "Servicio creado exitosamente", "service": service.serialize()}), 201
+
 
 @api.route('/services/<int:service_id>', methods=['PUT', 'DELETE'])
 @jwt_required()
@@ -986,6 +1011,9 @@ def register_payment():
     if appointment.status == AppointmentStatus.CANCELADA:
         return jsonify({"message": "No se puede registrar el pago de una cita cancelada"}), 400
 
+    if appointment.status != AppointmentStatus.PENDIENTE_PAGO:
+        return jsonify({"message": "Solo se puede cobrar una cita cuyo estado sea PENDIENTE_PAGO"}), 400
+
     if appointment.payment is not None:
         return jsonify({"message": "Esta cita ya tiene un pago registrado"}), 409
 
@@ -1133,9 +1161,9 @@ def create_medical_record(appointment_id):
     if not diagnostico or not tratamiento:
         return jsonify({"message": "El diagnóstico y el tratamiento son obligatorios"}), 400
 
-    # Asociamos al doctor y finalizamos la cita
+    # Asociamos al doctor y dejamos la cita en estado de pago pendiente.
     appointment.doctor_id = current_user_id
-    appointment.status = AppointmentStatus.COMPLETADA
+    appointment.status = AppointmentStatus.PENDIENTE_PAGO
 
     # AQUÍ ESTABA EL ERROR: Ahora usamos los campos correctos para crear el registro
     new_record = MedicalRecord(

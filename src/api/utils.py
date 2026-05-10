@@ -9,7 +9,6 @@ from api.models import db, User, RoleEnum, Clinic
 from sqlalchemy.exc import ProgrammingError
 
 
-
 class APIException(Exception):
     status_code = 400
 
@@ -78,7 +77,7 @@ def setup_initial_admins():
                         is_active=True,
                         must_change_password=False
                     )
-                    
+
                     new_admin.password = password
 
                     db.session.add(new_admin)
@@ -134,7 +133,9 @@ def generate_sitemap(app):
         <p>Remember to specify a real endpoint path like: </p>
         <ul style="text-align: left;">"""+links_html+"</ul></div>"
 
+
 resend.api_key = os.getenv("RESEND_API_KEY")
+
 
 def send_resend_email(to, subject, html_body):
     """
@@ -143,7 +144,7 @@ def send_resend_email(to, subject, html_body):
     try:
         params = {
             # IMPORTANTE: Cambia 'tu-dominio.com' por tu dominio verificado
-            "from": "NexPetly <notificaciones@nexpetly.site>", 
+            "from": "NexPetly <notificaciones@nexpetly.site>",
             "to": [to],
             "subject": subject,
             "html": html_body,
@@ -154,20 +155,21 @@ def send_resend_email(to, subject, html_body):
         print(f"❌ Error enviando correo vía Resend: {e}")
         return False
 
+
 def send_registration_notification(clinic_data, admin_data):
     """
     Maneja la notificación múltiple tras el registro de una clínica.
     1. Notifica a los 3 Super Admins definidos en el .env.
     2. Confirma al solicitante (Clinic Admin).
     """
-    
+
     # 1. Lista de correos de Super Admins desde el .env
     superadmin_emails = [
         os.getenv("ADMIN1_EMAIL"),
         os.getenv("ADMIN2_EMAIL"),
         os.getenv("ADMIN3_EMAIL")
     ]
-    
+
     # Preparamos el contenido para los Super Admins (se renderiza una sola vez por eficiencia)
     body_superadmin = render_template(
         "emails/admin_notification.html",
@@ -179,7 +181,7 @@ def send_registration_notification(clinic_data, admin_data):
 
     # Enviamos a cada Super Admin que tenga un correo configurado
     for email in superadmin_emails:
-        if email: # Solo envía si la variable no está vacía en el .env
+        if email:  # Solo envía si la variable no está vacía en el .env
             send_resend_email(
                 to=email,
                 subject="🔔 Alerta: Nueva solicitud de clínica registrada",
@@ -192,16 +194,17 @@ def send_registration_notification(clinic_data, admin_data):
         admin_name=admin_data.get("full_name"),
         clinic_name=clinic_data.get("name")
     )
-    
+
     return send_resend_email(
         to=admin_data.get("email"),
         subject="🐾 Recibimos tu solicitud - NexPetly",
         html_body=body_client
     )
 
+
 def send_approval_email(user_email, admin_name, clinic_name, temp_pw):
     body_html = render_template(
-        "emails/approval.html", 
+        "emails/approval.html",
         admin_name=admin_name,
         clinic_name=clinic_name,
         user_email=user_email,
@@ -209,6 +212,17 @@ def send_approval_email(user_email, admin_name, clinic_name, temp_pw):
         login_url=f"{os.getenv('VITE_FROTEND_URL')}/login"
     )
     return send_resend_email(user_email, "🎉 ¡Tu clínica ha sido aprobada! - NexPetly", body_html)
+
+
+def send_password_reset_email(user_email, full_name, temp_pw):
+    body_html = render_template(
+        "emails/password_reset.html",
+        full_name=full_name,
+        temp_pw=temp_pw,
+        login_url=f"{os.getenv('VITE_FROTEND_URL')}/login"
+    )
+    return send_resend_email(user_email, "Recuperación de contraseña - NexPetly", body_html)
+
 
 def send_rejection_email(user_email, admin_name, clinic_name, observaciones):
     """
@@ -223,7 +237,7 @@ def send_rejection_email(user_email, admin_name, clinic_name, observaciones):
             clinic_name=clinic_name,
             observaciones=observaciones
         )
-        
+
         return send_resend_email(
             to=user_email,
             subject="Actualización sobre tu solicitud de sede - NexPetly",
@@ -232,6 +246,7 @@ def send_rejection_email(user_email, admin_name, clinic_name, observaciones):
     except Exception as e:
         print(f"❌ Error en send_rejection_email: {e}")
         return False
+
 
 def send_staff_invitation_email(target_email, clinic_name, role_name, invite_link):
     """
@@ -244,6 +259,7 @@ def send_staff_invitation_email(target_email, clinic_name, role_name, invite_lin
         invite_link=invite_link
     )
     return send_resend_email(target_email, f"Invitación de {clinic_name} - NexPetly", body_html)
+
 
 def send_welcome_staff_email(user_email, staff_name, clinic_name, role_name, temp_pw):
     """

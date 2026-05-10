@@ -13,6 +13,7 @@ import React from "react";
 import { AdminClinics } from "./pages/AdminClinics";
 import { Invoice } from "./pages/Invoice";
 import { Login } from "./pages/Login";
+import { ForgotPassword } from "./pages/ForgotPassword";
 import { RegistrationLanding } from "./pages/RegistrationLanding";
 import { ForcePasswordChange } from "./pages/ForcePasswordChange";
 import { SuperAdminRequests } from "./pages/SuperAdminRequests";
@@ -59,6 +60,7 @@ export const router = createBrowserRouter(
       {/* RUTAS ESTRICTAMENTE PÚBLICAS */}
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/clinic/:clinic_id" element={<ClinicLanding />} />
       <Route path="/registro-cliente" element={<RegisterClient />} />
       <Route path="/registro-sede" element={<RegistrationLanding />} />

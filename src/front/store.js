@@ -15,6 +15,7 @@ export const initialStore = () => {
     userPets: [],
     userAppointments: [],
     appointments: [],
+    exchangeRates: 0,
   };
 };
 
@@ -140,6 +141,12 @@ export default function storeReducer(store, action) {
       return {
         ...store,
         userAppointments: action.payload,
+      };
+
+    case "set_exchange_rate":
+      return {
+        ...store,
+        exchangeRate: action.payload,
       };
 
     default:

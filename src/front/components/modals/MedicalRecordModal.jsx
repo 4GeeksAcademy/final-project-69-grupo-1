@@ -53,7 +53,7 @@ export const MedicalRecordModal = ({ show, onClose, appointment }) => {
         setLoading(false);
 
         if (success) {
-            Swal.fire("¡Éxito!", "La historia médica ha sido guardada y la cita completada.", "success");
+            Swal.fire("¡Éxito!", "La historia médica ha sido guardada y la cita quedó pendiente de pago.", "success");
             setCurrentApptId(null); // Limpiamos para que la próxima vez arranque de cero
             onClose();
         } else {
