@@ -20,6 +20,7 @@ class RoleEnum(enum.Enum):
 class AppointmentStatus(enum.Enum):
     PROGRAMADA = 'PROGRAMADA'
     EN_ATENCION = 'EN_ATENCION'
+    PENDIENTE_PAGO = 'PENDIENTE_PAGO'
     COMPLETADA = 'COMPLETADA'
     CANCELADA = 'CANCELADA'
 
@@ -217,15 +218,18 @@ class Pet(db.Model):
 class Service(db.Model):
     __tablename__ = 'services'
     id = db.Column(db.Integer, primary_key=True)
-    clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.id'), nullable=False)
+    clinic_id = db.Column(db.Integer, db.ForeignKey(
+        'clinics.id'), nullable=False)
     name = db.Column(db.String(120), nullable=False)
     price_usd = db.Column(db.Float, nullable=False, default=0.0)
     description = db.Column(db.String(255), nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(
+        db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     clinic = db.relationship('Clinic', back_populates='services')
-    appointments = db.relationship('Appointment', back_populates='service', cascade='all, delete')
+    appointments = db.relationship(
+        'Appointment', back_populates='service', cascade='all, delete')
 
     def serialize(self):
         return {
@@ -246,7 +250,8 @@ class Appointment(db.Model):
     status = db.Column(db.Enum(AppointmentStatus),
                        default=AppointmentStatus.PROGRAMADA)
     tipo = db.Column(db.String(50), nullable=False)
-    service_id = db.Column(db.Integer, db.ForeignKey('services.id'), nullable=True)
+    service_id = db.Column(db.Integer, db.ForeignKey(
+        'services.id'), nullable=True)
     service_name = db.Column(db.String(120), nullable=True)
     service_price_usd = db.Column(db.Float, nullable=True, default=0.0)
 

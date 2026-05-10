@@ -35,7 +35,8 @@ export const DoctorDashboard = () => {
             title: `${app.tipo} (ID Mascota: ${app.pet_id})`,
             start: `${app.date_time}T${app.time}`,
             backgroundColor: app.status === "EN_ATENCION" ? "#ffc107" :
-                app.status === "COMPLETADA" ? "#198754" : "#0d6efd",
+                app.status === "PENDIENTE_PAGO" ? "#0dcaf0" :
+                    app.status === "COMPLETADA" ? "#198754" : "#0d6efd",
             extendedProps: { ...app }
         };
     }).filter(e => e !== null) || [];
@@ -44,16 +45,18 @@ export const DoctorDashboard = () => {
     const handleEventClick = (info) => {
         const appointmentData = info.event.extendedProps;
 
-        // Si la cita ya está completada, bloqueamos la apertura del modal
-        if (appointmentData.status === "COMPLETADA") {
+        // Si la cita ya fue procesada por el doctor, bloqueamos la apertura del modal.
+        if (appointmentData.status === "COMPLETADA" || appointmentData.status === "PENDIENTE_PAGO") {
             Swal.fire({
-                title: 'Cita Completada',
-                html: `El historial médico para esta consulta ya fue registrado y cerrado.<br><br>Si deseas leer el expediente de <b>${appointmentData.pet_name || 'este paciente'}</b>, por favor utiliza la pestaña de <b>Expedientes Clínicos</b>.`,
+                title: appointmentData.status === "COMPLETADA" ? 'Cita Completada' : 'Pago pendiente',
+                html: appointmentData.status === "COMPLETADA"
+                    ? `El historial médico para esta consulta ya fue registrado y cerrado.<br><br>Si deseas leer el expediente de <b>${appointmentData.pet_name || 'este paciente'}</b>, por favor utiliza la pestaña de <b>Expedientes Clínicos</b>.`
+                    : `El historial médico ya está guardado, pero falta registrar el pago para finalizar la cita.`,
                 icon: 'info',
                 confirmButtonColor: '#0d6efd',
                 confirmButtonText: 'Entendido'
             });
-            return; // El "return" evita que el código siga bajando y abra el modal
+            return; // Evita que el código siga y abra el modal
         }
 
         // Si no está completada, abrimos el modal normal
@@ -149,7 +152,7 @@ export const DoctorDashboard = () => {
                                                 <strong className="text-dark fs-5">
                                                     {new Date(ev.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </strong>
-                                                <span className={`badge ${ev.extendedProps.status === 'EN_ATENCION' ? 'bg-warning text-dark' : ev.extendedProps.status === 'COMPLETADA' ? 'bg-success' : 'bg-primary'} align-self-start`}>
+                                                <span className={`badge ${ev.extendedProps.status === 'EN_ATENCION' ? 'bg-warning text-dark' : ev.extendedProps.status === 'PENDIENTE_PAGO' ? 'bg-info text-dark' : ev.extendedProps.status === 'COMPLETADA' ? 'bg-success' : 'bg-primary'} align-self-start`}>
                                                     {ev.extendedProps.status}
                                                 </span>
                                             </div>

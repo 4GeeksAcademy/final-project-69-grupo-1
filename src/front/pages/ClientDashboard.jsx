@@ -180,10 +180,14 @@ export const ClientDashboard = () => {
                                                     </td>
                                                     <td>
                                                         <span className={`badge rounded-pill ${app.status === 'PROGRAMADA' ? 'bg-primary' :
-                                                            app.status === 'COMPLETADA' ? 'bg-success' :
-                                                                app.status === 'EN_ATENCION' ? 'bg-warning text-dark' : 'bg-danger'
+                                                            app.status === 'EN_ATENCION' ? 'bg-warning text-dark' :
+                                                            app.status === 'PENDIENTE_PAGO' ? 'bg-info text-dark' :
+                                                            app.status === 'COMPLETADA' ? 'bg-success' : 'bg-danger'
                                                             }`}>
-                                                            {app.status}
+                                                            {app.status === 'PROGRAMADA' ? 'Programada' :
+                                                             app.status === 'EN_ATENCION' ? 'En atención' :
+                                                             app.status === 'PENDIENTE_PAGO' ? 'Pendiente de pago' :
+                                                             app.status === 'COMPLETADA' ? 'Completada' : 'Cancelada'}
                                                         </span>
                                                     </td>
                                                     <td className="text-end px-4">

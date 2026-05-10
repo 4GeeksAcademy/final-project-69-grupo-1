@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import logoImageUrl from "../assets/img/Logo_NexPetly.png";
 
 export const Footer = () => (
 	<footer className="bg-white border-top pt-5 pb-3">
@@ -8,8 +9,11 @@ export const Footer = () => (
 				{/* Branding y Descripción */}
 				<div className="col-lg-4 mb-4 mb-lg-0">
 					<div className="d-flex align-items-center gap-2 mb-3">
-						<i className="fa-solid fa-paw text-primary fs-3"></i>
-						<span className="fw-bolder text-dark fs-4">Nex<span className="text-primary">Petly</span> </span>
+						<img
+							src={logoImageUrl}
+							alt="NexPetly logo"
+							style={{ height: "40px", objectFit: "contain" }}
+						/>
 					</div>
 					<p className="text-muted small pe-lg-5">
 						Simplificando la gestión veterinaria y acercando a los dueños de mascotas a la mejor atención médica posible.

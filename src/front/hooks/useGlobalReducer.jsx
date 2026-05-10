@@ -28,6 +28,24 @@ export function StoreProvider({ children }) {
             }
         },
 
+        requestPasswordReset: async (email) => {
+            try {
+                const resp = await fetch(import.meta.env.VITE_BACKEND_URL + "/api/password-reset-request", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email })
+                });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    return { success: false, message: data.message || "No se pudo enviar la solicitud" };
+                }
+                return { success: true, message: data.message };
+            } catch (error) {
+                console.error("Error en solicitud de recuperación:", error);
+                return { success: false, message: "Error de conexión" };
+            }
+        },
+
         // 2. Enviar solicitud (CORREGIDO PARA ARCHIVOS/FORM-DATA)
         submitClinicRegistration: async (formData) => {
             try {
@@ -479,8 +497,8 @@ export function StoreProvider({ children }) {
                     body: JSON.stringify(recordData) // { diagnostico: "...", tratamiento: "..." }
                 });
                 if (resp.ok) {
-                    // Actualizamos el estado de la cita a COMPLETADA en el store visual
-                    dispatch({ type: "update_appointment_status", payload: { id: appointmentId, status: "COMPLETADA" } });
+                    // Actualizamos el estado de la cita a PENDIENTE_PAGO en el store visual
+                    dispatch({ type: "update_appointment_status", payload: { id: appointmentId, status: "PENDIENTE_PAGO" } });
                     return true;
                 }
             } catch (error) {

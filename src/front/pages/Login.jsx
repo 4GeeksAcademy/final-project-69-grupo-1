@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom"; // Importamos Link
+import logoImageUrl from "../assets/img/Logo_NexPetly.png";
 import { useGlobalReducer } from "../hooks/useGlobalReducer";
 import toast from "react-hot-toast";
 
@@ -76,7 +77,12 @@ export const Login = () => {
                     <div className="card shadow-lg border-0 rounded-4">
                         <div className="card-body p-5">
                             <div className="text-center mb-4">
-                                <h2 className="fw-bold text-primary">NexPetly</h2>
+                                <img
+                                    src={logoImageUrl}
+                                    alt="Logo de NexPetly"
+                                    className="mb-3"
+                                    style={{ width: "200px", height: "auto", objectFit: "contain" }}
+                                />
                                 <p className="text-muted small">Panel de Gestión Profesional</p>
                             </div>
 
@@ -108,6 +114,11 @@ export const Login = () => {
                                         onChange={(e) => setPassword(e.target.value)}
                                         required
                                     />
+                                </div>
+                                <div className="d-flex justify-content-end mb-3">
+                                    <Link to="/forgot-password" className="small text-primary fw-bold text-decoration-none">
+                                        ¿Olvidaste tu contraseña?
+                                    </Link>
                                 </div>
                                 <button
                                     type="submit"

@@ -1,6 +1,7 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useGlobalReducer } from "../hooks/useGlobalReducer";
+import logoImageUrl from "../assets/img/Logo_NexPetly.png";
 
 export const Navbar = () => {
     const { store, actions } = useGlobalReducer();
@@ -15,9 +16,12 @@ export const Navbar = () => {
         <nav className="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm px-4 sticky-top">
             <div className="container-fluid">
                 {/* Logo */}
-                <Link to="/" className="navbar-brand d-flex align-items-center gap-2" style={{ textDecoration: 'none' }}>
-                    <i className="fa-solid fa-paw text-primary fs-3"></i>
-                    <span className="fw-bolder text-dark fs-4">Nex<span className="text-primary">Petly</span></span>
+                <Link to="/" className="navbar-brand d-flex align-items-center" style={{ textDecoration: 'none' }}>
+                    <img
+                        src={logoImageUrl}
+                        alt="NexPetly logo"
+                        style={{ height: "40px", objectFit: "contain" }}
+                    />
                 </Link>
 
                 {/* Lado Derecho: Usuario y Acciones */}
