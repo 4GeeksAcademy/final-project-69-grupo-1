@@ -25,15 +25,20 @@ def submit_registration():
 
     # Obtenemos el email de forma segura
     email = data.get('email')
+    print(f"DEBUG: Email recibido: {email}")
 
     if not email:
+        print("DEBUG: Email faltante")
         return jsonify({"error": "El campo email es obligatorio"}), 400
 
     # 2. VALIDACIÓN (Usando 'email' que acabamos de extraer)
     user_exists = User.query.filter_by(email=email).first()
     request_exists = ClinicRequest.query.filter_by(email=email).first()
+    print(
+        f"DEBUG: User exists: {user_exists is not None}, Request exists: {request_exists is not None}")
 
     if user_exists or request_exists:
+        print("DEBUG: Email duplicado")
         return jsonify({"error": "El correo ya está registrado o en proceso de revisión"}), 400
 
     # 3. Función interna para subir a Cloudinary
@@ -59,8 +64,12 @@ def submit_registration():
     url_sanitario = upload_file('file_sanitario')
     url_titulo = upload_file('file_titulo')
 
+    print(
+        f"DEBUG: URLs - cedula: {url_cedula}, rif: {url_rif}, mercantil: {url_mercantil}, sanitario: {url_sanitario}, titulo: {url_titulo}")
+
     # Verificación de documento mínimo
     if not url_cedula:
+        print("DEBUG: Cedula upload failed")
         return jsonify({"error": "No se pudo cargar la Cédula de Identidad"}), 400
 
     # 4. Crear el registro en la Base de Datos

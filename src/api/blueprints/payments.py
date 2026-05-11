@@ -88,3 +88,91 @@ def register_payment():
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": f"Error al procesar el pago: {str(e)}"}), 500
+
+@payments_bp.route('/payments', methods=['GET'])
+@jwt_required()
+@roles_required(RoleEnum.SUPER_ADMIN)
+def get_all_payments():
+    """
+    Endpoint para que el Super Admin obtenga la lista de todos los pagos del sistema.
+    Query params:
+        - clinic_id: Filtra por clínica
+        - payment_method: Filtra por método de pago
+        - date_from: Filtra desde esta fecha (formato: YYYY-MM-DD)
+        - date_to: Filtra hasta esta fecha (formato: YYYY-MM-DD)
+    """
+    try:
+        from datetime import datetime
+        
+        # Parámetros de filtrado 
+        clinic_id = request.args.get('clinic_id')
+        payment_method = request.args.get('payment_method') # Zelle, Pago Móvil, etc.
+        date_from = request.args.get('date_from')
+        date_to = request.args.get('date_to')
+        
+        query = Payment.query
+
+        if clinic_id:
+            query = query.filter_by(clinic_id=clinic_id)
+        if payment_method:
+            query = query.filter_by(payment_method=payment_method)
+            
+        if date_from:
+            try:
+                from_date = datetime.strptime(date_from, "%Y-%m-%d").date()
+                query = query.filter(Payment.created_at >= from_date)
+            except ValueError:
+                return jsonify({"message": "Formato de date_from inválido (use YYYY-MM-DD)"}), 400
+                
+        if date_to:
+            try:
+                to_date = datetime.strptime(date_to, "%Y-%m-%d").date()
+                from datetime import timedelta
+                to_date = to_date + timedelta(days=1)
+                query = query.filter(Payment.created_at < to_date)
+            except ValueError:
+                return jsonify({"message": "Formato de date_to inválido (use YYYY-MM-DD)"}), 400
+
+        payments = query.order_by(Payment.created_at.desc()).all()
+        
+        # Serializar respuesta con clinic_name incluido
+        return jsonify([{
+            "id": p.id,
+            "clinic_id": p.clinic_id,
+            "clinic_name": p.clinic.nombre if p.clinic else "N/A",
+            "appointment_id": p.appointment_id,
+            "amount": p.amount,
+            "payment_method": p.payment_method.value if p.payment_method else None,
+            "created_at": p.created_at.isoformat() if p.created_at else None
+        } for p in payments]), 200
+        
+    except Exception as e:
+        return jsonify({"message": f"Error al obtener pagos: {str(e)}"}), 500
+
+
+@payments_bp.route('/admin/all', methods=['GET'])
+@jwt_required()
+@roles_required(RoleEnum.SUPER_ADMIN) # Solo acceso para SuperAdmin [cite: 36]
+def get_all_payments_admin():
+    # Parámetros de filtrado 
+    clinic_id = request.args.get('clinic_id')
+    payment_method = request.args.get('method') # Zelle, Pago Móvil, etc.
+    
+    query = Payment.query
+
+    if clinic_id:
+        query = query.filter_by(clinic_id=clinic_id)
+    if payment_method:
+        query = query.filter_by(payment_method=payment_method)
+
+    payments = query.all()
+    
+    return jsonify([{
+        "id": p.id,
+        "amount": p.amount,
+        "currency": "USD",
+        "method": p.payment_method,
+        "date": p.created_at.isoformat(),
+        "clinic_name": p.clinic.name,
+        "status": p.status
+    } for p in payments]), 200

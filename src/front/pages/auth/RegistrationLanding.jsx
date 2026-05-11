@@ -66,13 +66,13 @@ export const RegistrationLanding = () => {
             if (files[key]) data.append(key, files[key]);
         });
 
-        const success = await actions.submitClinicRegistration(data);
-        
-        if (success) {
+        const result = await actions.submitClinicRegistration(data);
+
+        if (result.success) {
             toast.success("Solicitud enviada. Revisaremos tus credenciales profesionales.");
             navigate("/");
         } else {
-            toast.error("Error al procesar la solicitud.");
+            toast.error(result.error || "Error al procesar la solicitud.");
         }
         setLoading(false);
     };
@@ -85,7 +85,7 @@ export const RegistrationLanding = () => {
                         <div className="bg-primary p-4 text-white text-center">
                             <h3 className="fw-bold mb-0">Afiliación a PetHealth & Spa</h3>
                         </div>
-                        
+
                         <div className="card-body p-4 p-md-5">
                             <form onSubmit={handleSubmit}>
                                 <div className="mb-4 bg-light p-3 rounded border">
@@ -139,7 +139,7 @@ export const RegistrationLanding = () => {
                                 <h5 className="fw-bold mb-3 mt-5 text-danger border-bottom pb-2">
                                     <i className="fas fa-file-signature me-2"></i>Documentación Legal Requerida
                                 </h5>
-                                
+
                                 <div className="row g-3">
                                     <div className="col-md-6">
                                         <label className="form-label small fw-bold">Cédula Digitalizada *</label>

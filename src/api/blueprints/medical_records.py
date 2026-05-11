@@ -83,3 +83,70 @@ def get_pet_medical_history(pet_id):
 
     # 4. Usamos el serialize que agregamos a models.py para mandarlo bonito al frontend
     return jsonify([record.serialize() for record in records]), 200
+
+
+@medical_bp.route('/medical-records', methods=['GET'])
+@jwt_required()
+@roles_required(RoleEnum.SUPER_ADMIN)
+def get_all_medical_records():
+    """
+    Endpoint para que el Super Admin obtenga la lista de todos los registros médicos del sistema.
+    Para auditoría y gestión centralizada.
+    Query params:
+        - clinic_id: Filtra por clínica
+        - doctor_id: Filtra por doctor/veterinario
+        - pet_id: Filtra por mascota
+        - date_from: Filtra desde esta fecha (formato: YYYY-MM-DD)
+        - date_to: Filtra hasta esta fecha (formato: YYYY-MM-DD)
+    """
+    try:
+        from datetime import datetime
+
+        # Obtener parámetros de filtro
+        clinic_id = request.args.get('clinic_id', type=int)
+        doctor_id = request.args.get('doctor_id', type=int)
+        pet_id = request.args.get('pet_id', type=int)
+        date_from = request.args.get('date_from')
+        date_to = request.args.get('date_to')
+
+        # Construir query base
+        query = MedicalRecord.query
+
+        # Aplicar filtros si están presentes
+        if clinic_id:
+            # Filtrar por clínica: buscamos registros de doctores de esa clínica
+            query = query.join(User, MedicalRecord.doctor_id == User.id).filter(
+                User.clinic_id == clinic_id
+            )
+
+        if doctor_id:
+            query = query.filter_by(doctor_id=doctor_id)
+
+        if pet_id:
+            query = query.filter_by(pet_id=pet_id)
+
+        if date_from:
+            try:
+                from_date = datetime.strptime(date_from, "%Y-%m-%d").date()
+                query = query.filter(MedicalRecord.fecha >= from_date)
+            except ValueError:
+                return jsonify({"message": "Formato de date_from inválido (use YYYY-MM-DD)"}), 400
+
+        if date_to:
+            try:
+                from datetime import timedelta
+                to_date = datetime.strptime(date_to, "%Y-%m-%d").date()
+                # Para incluir todo el día
+                to_date = to_date + timedelta(days=1)
+                query = query.filter(MedicalRecord.fecha < to_date)
+            except ValueError:
+                return jsonify({"message": "Formato de date_to inválido (use YYYY-MM-DD)"}), 400
+
+        # Ejecutar query ordenado por fecha descendente (más recientes primero)
+        records = query.order_by(MedicalRecord.fecha.desc()).all()
+
+        # Serializar respuesta
+        return jsonify([record.serialize() for record in records]), 200
+
+    except Exception as e:
+        return jsonify({"message": f"Error al obtener registros médicos: {str(e)}"}), 500
