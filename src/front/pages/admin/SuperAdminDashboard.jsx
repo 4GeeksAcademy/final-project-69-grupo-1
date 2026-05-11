@@ -7,6 +7,10 @@ import { ToggleStatusModal } from "../../components/clinic/ToggleStatusModal";
 import { EditClinicModal } from "../../components/clinic/EditClinicModal";
 import { ViewClinicDetailsModal } from "../../components/clinic/ViewClinicDetailsModal";
 import { RejectClinicRequestModal } from "../../components/clinic/RejectClinicRequestModal";
+import { AdminUsersTab } from "../../components/admin/AdminUsersTab";
+import { AdminServicesTab } from "../../components/admin/AdminServicesTab";
+import { AdminPaymentsTab } from "../../components/admin/AdminPaymentsTab";
+import { AdminMedicalRecordsTab } from "../../components/admin/AdminMedicalRecordsTab";
 
 export const SuperAdminDashboard = () => {
     const { store, actions, dispatch } = useGlobalReducer();
@@ -248,19 +252,28 @@ export const SuperAdminDashboard = () => {
                 <header className="row mb-4 align-items-end">
                     <div className="col-md-8">
                         <h2 className="fw-bold text-dark mb-1">Panel de Control Maestro 🚀</h2>
-                        <p className="text-muted mb-0">Gestión global de sedes y validación de registros.</p>
+                        <p className="text-muted mb-0">Gestión global de sedes, usuarios, servicios y registros médicos.</p>
                     </div>
-                    <div className="col-md-4 text-md-end">
+                    <div className="col-md-4 text-md-end d-flex gap-2 justify-content-md-end">
+                        <a
+                            href={import.meta.env.VITE_BACKEND_URL + "/admin"}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-outline-secondary btn-sm rounded-pill px-3"
+                            title="Acceso directo a la base de datos"
+                        >
+                            <i className="fas fa-database me-1"></i> Flask-Admin
+                        </a>
                         <span className="badge bg-white text-primary border border-primary px-3 py-2 rounded-pill shadow-sm">
                             Super Admin: {store.user?.full_name}
                         </span>
                     </div>
                 </header>
 
-                <ul className="nav nav-pills mb-4 bg-white p-2 rounded-pill shadow-sm d-inline-flex border">
+                <ul className="nav nav-pills mb-4 bg-white p-2 rounded-pill shadow-sm d-flex flex-wrap border">
                     <li className="nav-item">
                         <button
-                            className={`nav-link rounded-pill px-4 fw-bold ${activeTab === "solicitudes" ? "active" : "text-secondary"}`}
+                            className={`nav-link rounded-pill px-3 fw-bold ${activeTab === "solicitudes" ? "active" : "text-secondary"}`}
                             onClick={() => setActiveTab("solicitudes")}
                         >
                             <i className="fas fa-clipboard-list me-2"></i> Solicitudes
@@ -269,10 +282,42 @@ export const SuperAdminDashboard = () => {
                     </li>
                     <li className="nav-item">
                         <button
-                            className={`nav-link rounded-pill px-4 fw-bold ${activeTab === "clinicas" ? "active" : "text-secondary"}`}
+                            className={`nav-link rounded-pill px-3 fw-bold ${activeTab === "clinicas" ? "active" : "text-secondary"}`}
                             onClick={() => setActiveTab("clinicas")}
                         >
                             <i className="fas fa-hospital me-2"></i> Clínicas Activas
+                        </button>
+                    </li>
+                    <li className="nav-item">
+                        <button
+                            className={`nav-link rounded-pill px-3 fw-bold ${activeTab === "usuarios" ? "active" : "text-secondary"}`}
+                            onClick={() => setActiveTab("usuarios")}
+                        >
+                            <i className="fas fa-users me-2"></i> Usuarios
+                        </button>
+                    </li>
+                    <li className="nav-item">
+                        <button
+                            className={`nav-link rounded-pill px-3 fw-bold ${activeTab === "servicios" ? "active" : "text-secondary"}`}
+                            onClick={() => setActiveTab("servicios")}
+                        >
+                            <i className="fas fa-briefcase-medical me-2"></i> Servicios
+                        </button>
+                    </li>
+                    <li className="nav-item">
+                        <button
+                            className={`nav-link rounded-pill px-3 fw-bold ${activeTab === "pagos" ? "active" : "text-secondary"}`}
+                            onClick={() => setActiveTab("pagos")}
+                        >
+                            <i className="fas fa-credit-card me-2"></i> Pagos
+                        </button>
+                    </li>
+                    <li className="nav-item">
+                        <button
+                            className={`nav-link rounded-pill px-3 fw-bold ${activeTab === "medicos" ? "active" : "text-secondary"}`}
+                            onClick={() => setActiveTab("medicos")}
+                        >
+                            <i className="fas fa-notes-medical me-2"></i> Registros Médicos
                         </button>
                     </li>
                 </ul>
@@ -307,8 +352,23 @@ export const SuperAdminDashboard = () => {
                                             <td className="small"><div>{req.nombre_admin}</div><div className="text-muted">{req.telefono}</div></td>
                                             <td>
                                                 <div className="d-flex gap-1">
-                                                    <a href={req.docs.cedula} target="_blank" rel="noreferrer" className="btn btn-xs btn-light border"><i className="fas fa-id-card"></i></a>
-                                                    {req.tipo === 'EMPRESA' && <a href={req.docs.rif} target="_blank" rel="noreferrer" className="btn btn-xs btn-light border"><i className="fas fa-file-invoice"></i></a>}
+                                                    <a href={req.docs.cedula} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-secondary" title="Cédula">
+                                                        <i className="fas fa-id-card"></i>
+                                                    </a>
+                                                    {req.tipo === 'EMPRESA' ? (
+                                                        <>
+                                                            <a href={req.docs.rif} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-secondary" title="RIF">
+                                                                <i className="fas fa-file-invoice"></i>
+                                                            </a>
+                                                            <a href={req.docs.mercantil} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-secondary" title="Registro">
+                                                                <i className="fas fa-building"></i>
+                                                            </a>
+                                                        </>
+                                                    ) : (
+                                                        <a href={req.docs.titulo} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-secondary" title="Título">
+                                                            <i className="fas fa-graduation-cap"></i>
+                                                        </a>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="text-end px-4">
@@ -431,6 +491,22 @@ export const SuperAdminDashboard = () => {
                             </div>
                         </div>
                     </div>
+                )}
+
+                {activeTab === "usuarios" && (
+                    <AdminUsersTab />
+                )}
+
+                {activeTab === "servicios" && (
+                    <AdminServicesTab />
+                )}
+
+                {activeTab === "pagos" && (
+                    <AdminPaymentsTab />
+                )}
+
+                {activeTab === "medicos" && (
+                    <AdminMedicalRecordsTab />
                 )}
             </div>
 

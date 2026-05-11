@@ -354,7 +354,10 @@ class MedicalRecord(db.Model):
             "diagnostico": self.diagnostico,
             "tratamiento": self.tratamiento,
             "examenes": self.examenes,
-            "doctor_name": self.doctor.full_name if self.doctor else "Desconocido"
+            "doctor_name": self.doctor.full_name if self.doctor else "Desconocido",
+            "pet_name": self.pet.nombre if self.pet else "N/A",
+            "pet_species": self.pet.especie if self.pet else "",
+            "clinic_id": self.doctor.clinic_id if self.doctor else None
         }
 
 

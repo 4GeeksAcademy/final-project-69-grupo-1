@@ -54,10 +54,15 @@ export function StoreProvider({ children }) {
                     // IMPORTANTE: No ponemos Headers de Content-Type cuando enviamos FormData con archivos
                     body: formData
                 });
-                return resp.ok;
+                if (resp.ok) {
+                    return { success: true };
+                } else {
+                    const errorData = await resp.json();
+                    return { success: false, error: errorData.error || "Error desconocido" };
+                }
             } catch (error) {
                 console.error("Error enviando solicitud:", error);
-                return false;
+                return { success: false, error: "Error de conexión" };
             }
         },
 
@@ -600,6 +605,59 @@ export function StoreProvider({ children }) {
                 console.error("Error cargando tasa BCV:", error);
             }
         },
+
+        // === NUEVAS ACCIONES PARA ADMIN ===
+
+        getUsers: async () => {
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users`, {
+                    headers: { "Authorization": "Bearer " + store.token }
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    dispatch({ type: "set_users", payload: data });
+                    return { success: true, data };
+                } else if (resp.status === 404) {
+                    return { success: false, message: "Endpoint no disponible" };
+                }
+            } catch (error) {
+                console.error("Error cargando usuarios:", error);
+            }
+            return { success: false };
+        },
+
+        getServices: async () => {
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/services`, {
+                    headers: { "Authorization": "Bearer " + store.token }
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    dispatch({ type: "set_services", payload: data });
+                    return { success: true, data };
+                }
+            } catch (error) {
+                console.error("Error cargando servicios:", error);
+            }
+            return { success: false };
+        },
+
+        getMedicalRecords: async () => {
+            try {
+                const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/medical-records`, {
+                    headers: { "Authorization": "Bearer " + store.token }
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    dispatch({ type: "set_medical_records", payload: data });
+                    return { success: true, data };
+                }
+            } catch (error) {
+                console.error("Error cargando registros médicos:", error);
+            }
+            return { success: false };
+        },
+        
 
     };
 

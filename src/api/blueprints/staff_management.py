@@ -20,13 +20,19 @@ def get_clinic_staff(clinic_id):
 
 @staff_bp.route('/users/<int:user_id>/status', methods=['PATCH'])
 @jwt_required()
-@roles_required(RoleEnum.CLINIC_ADMIN, RoleEnum.INDEPENDENT_VET)
+@roles_required(RoleEnum.SUPER_ADMIN, RoleEnum.CLINIC_ADMIN, RoleEnum.INDEPENDENT_VET)
 def toggle_user_status(user_id):
     user = User.query.get(user_id)
-    # Validación: El admin solo puede tocar gente de SU clínica
+    if not user:
+        return jsonify({"msg": "Usuario no encontrado"}), 404
+
     claims = get_jwt()
-    if user.clinic_id != claims.get("clinic_id"):
-        return jsonify({"msg": "No tienes permiso sobre este usuario"}), 403
+    current_role = claims.get("role")
+
+    # Super Admin puede cambiar el estado de cualquier usuario.
+    if current_role != RoleEnum.SUPER_ADMIN.value:
+        if user.clinic_id != claims.get("clinic_id"):
+            return jsonify({"msg": "No tienes permiso sobre este usuario"}), 403
 
     data = request.json
     user.is_active = data.get("is_active")
@@ -302,3 +308,49 @@ def bulk_staff_upload():
         "errors": errors,
         "total_rows": users_created + len(errors)
     }), 200
+
+
+@staff_bp.route('/users', methods=['GET'])
+@jwt_required()
+@roles_required(RoleEnum.SUPER_ADMIN)
+def get_all_users():
+    """
+    Endpoint para que el Super Admin obtenga la lista de todos los usuarios del sistema.
+    Soporta filtros opcionales por rol y estado.
+    Query params:
+        - role: Filtra por rol (SUPER_ADMIN, CLINIC_ADMIN, DOCTOR, RECEPTIONIST, CLIENTE)
+        - is_active: Filtra por estado (true/false)
+        - clinic_id: Filtra por clínica
+    """
+    try:
+        # Obtener parámetros de filtro
+        role = request.args.get('role')
+        is_active = request.args.get('is_active')
+        clinic_id = request.args.get('clinic_id', type=int)
+
+        # Construir query base
+        query = User.query
+
+        # Aplicar filtros si están presentes
+        if role:
+            try:
+                role_enum = RoleEnum(role)
+                query = query.filter_by(role=role_enum)
+            except ValueError:
+                return jsonify({"message": f"Rol inválido: {role}"}), 400
+
+        if is_active is not None:
+            is_active_bool = is_active.lower() == 'true'
+            query = query.filter_by(is_active=is_active_bool)
+
+        if clinic_id:
+            query = query.filter_by(clinic_id=clinic_id)
+
+        # Ejecutar query ordenado por ID
+        users = query.order_by(User.id.desc()).all()
+
+        # Serializar respuesta
+        return jsonify([user.serialize() for user in users]), 200
+
+    except Exception as e:
+        return jsonify({"message": f"Error al obtener usuarios: {str(e)}"}), 500
