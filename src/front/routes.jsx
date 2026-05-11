@@ -5,29 +5,29 @@ import {
   Navigate
 } from "react-router-dom";
 import { useGlobalReducer } from "./hooks/useGlobalReducer";
-import { Layout } from "./pages/Layout";
-import { Home } from "./pages/Home";
-import { Single } from "./pages/Single";
-import { Demo } from "./pages/Demo";
+import { Layout } from "./pages/layout/Layout";
+import { Home } from "./pages/layout/Home";
+import { Single } from "./pages/legacy/Single";
+import { Demo } from "./pages/legacy/Demo";
 import React from "react";
-import { AdminClinics } from "./pages/AdminClinics";
-import { Invoice } from "./pages/Invoice";
-import { Login } from "./pages/Login";
-import { ForgotPassword } from "./pages/ForgotPassword";
-import { RegistrationLanding } from "./pages/RegistrationLanding";
-import { ForcePasswordChange } from "./pages/ForcePasswordChange";
-import { SuperAdminRequests } from "./pages/SuperAdminRequests";
-import { MyPets } from "./pages/MyPets";
-import { BookingView } from "./pages/BookingView"; // <--- AGREGADO
-import { ClinicDashboard } from "./pages/ClinicDashboard";
-import { RegisterStaff } from "./pages/RegisterStaffNewEmployee";
-import { RegisterWithCode } from "./pages/RegisterWithCode";
-import { ReceptionistDashboard } from "./pages/ReceptionistDashboard";
-import { ClinicLanding } from "./pages/ClinicLanding";
-import { RegisterClient } from "./pages/RegisterClient";
-import { ClientDashboard } from "./pages/ClientDashboard";
-import { DoctorDashboard } from "./pages/DoctorDashboard";
-import { SuperAdminDashboard } from "./pages/SuperAdminDashboard";
+import { AdminClinics } from "./pages/admin/AdminClinics";
+import { Invoice } from "./pages/client/Invoice";
+import { Login } from "./pages/auth/Login";
+import { ForgotPassword } from "./pages/auth/ForgotPassword";
+import { RegistrationLanding } from "./pages/auth/RegistrationLanding";
+import { ForcePasswordChange } from "./pages/auth/ForcePasswordChange";
+import { SuperAdminRequests } from "./pages/admin/SuperAdminRequests";
+import { MyPets } from "./pages/client/MyPets";
+import { BookingView } from "./pages/client/BookingView"; // <--- AGREGADO
+import { ClinicDashboard } from "./pages/clinic/ClinicDashboard";
+import { RegisterStaff } from "./pages/auth/RegisterStaffNewEmployee";
+import { RegisterWithCode } from "./pages/auth/RegisterWithCode";
+import { ReceptionistDashboard } from "./pages/reception/ReceptionistDashboard";
+import { ClinicLanding } from "./pages/auth/ClinicLanding";
+import { RegisterClient } from "./pages/auth/RegisterClient";
+import { ClientDashboard } from "./pages/client/ClientDashboard";
+import { DoctorDashboard } from "./pages/medical/DoctorDashboard";
+import { SuperAdminDashboard } from "./pages/admin/SuperAdminDashboard";
 
 const PrivateGuard = ({ children, allowedRoles }) => {
   const { store } = useGlobalReducer();

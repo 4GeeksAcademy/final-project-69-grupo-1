@@ -1,7 +1,6 @@
 """
 This module takes care of starting the API Server, Loading the DB and Adding the endpoints
 """
-import os
 from datetime import timedelta
 from flask import Flask, request, jsonify, url_for, send_from_directory
 from flask_migrate import Migrate
@@ -9,11 +8,22 @@ from flask_swagger import swagger
 from flask_cors import CORS
 from api.utils import APIException, generate_sitemap, setup_initial_admins
 from api.models import db
-from api.routes import api
 from api.admin import setup_admin
 from api.commands import setup_commands
 from flask_jwt_extended import JWTManager
 from flask_mailman import Mail
+from api.blueprints.utils_routes import utils_bp
+from api.blueprints.payments import payments_bp
+from api.blueprints.medical_records import medical_bp
+from api.blueprints.appointments import appointments_bp
+from api.blueprints.pets import pets_bp
+from api.blueprints.clients import clients_bp
+from api.blueprints.staff_management import staff_bp
+from api.blueprints.services import services_bp
+from api.blueprints.clinic_management import clinic_mgmt_bp
+from api.blueprints.clinic_requests import clinic_requests_bp
+from api.blueprints.auth import auth_bp
+import os
 
 ENV = "development" if os.getenv("FLASK_DEBUG") == "1" else "production"
 static_file_dir = os.path.join(os.path.dirname(
@@ -63,8 +73,20 @@ with app.app_context():
     print("Iniciando validación de SuperAdmins...")
     setup_initial_admins()
 
-# --- 1. REGISTRO DEL BLUEPRINT (IMPORTANTE: DEBE IR ANTES DE LAS RUTAS DE ARCHIVOS) ---
-app.register_blueprint(api, url_prefix='/api')
+# Importar blueprints
+
+# --- 1. REGISTRO DE LOS BLUEPRINTS (IMPORTANTE: DEBE IR ANTES DE LAS RUTAS DE ARCHIVOS) ---
+app.register_blueprint(auth_bp, url_prefix='/api')
+app.register_blueprint(clinic_requests_bp, url_prefix='/api')
+app.register_blueprint(clinic_mgmt_bp, url_prefix='/api')
+app.register_blueprint(services_bp, url_prefix='/api')
+app.register_blueprint(staff_bp, url_prefix='/api')
+app.register_blueprint(clients_bp, url_prefix='/api')
+app.register_blueprint(pets_bp, url_prefix='/api')
+app.register_blueprint(appointments_bp, url_prefix='/api')
+app.register_blueprint(medical_bp, url_prefix='/api')
+app.register_blueprint(payments_bp, url_prefix='/api')
+app.register_blueprint(utils_bp, url_prefix='/api')
 
 
 @app.errorhandler(APIException)
