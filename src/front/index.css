@@ -1,0 +1,26 @@
+/* Forzamos a que el contenedor principal ocupe toda la pantalla y empuje el footer al fondo */
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* El contenido principal crece para llenar el espacio vacío */
+.container {
+  flex: 1;
+}
+
+/*@media print {
+    Oculta todo menos el área del QR al imprimir
+    body * { visibility: hidden; }
+    .card-header, .card-body, .card-body .bg-light, .card-body svg { 
+        visibility: visible; 
+        position: absolute;
+        left: 0; top: 0;
+    }
+}*/
+
+/*.hover-up:hover {
+    transform: translateY(-3px);
+    transition: all 0.3s ease;
+}*/

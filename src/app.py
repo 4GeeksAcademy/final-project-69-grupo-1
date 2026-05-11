@@ -1,25 +1,59 @@
 """
 This module takes care of starting the API Server, Loading the DB and Adding the endpoints
 """
-import os
+from datetime import timedelta
 from flask import Flask, request, jsonify, url_for, send_from_directory
 from flask_migrate import Migrate
 from flask_swagger import swagger
-from api.utils import APIException, generate_sitemap
+from flask_cors import CORS
+from api.utils import APIException, generate_sitemap, setup_initial_admins
 from api.models import db
-from api.routes import api
 from api.admin import setup_admin
 from api.commands import setup_commands
-
-# from models import Person
+from flask_jwt_extended import JWTManager
+from flask_mailman import Mail
+from api.blueprints.utils_routes import utils_bp
+from api.blueprints.payments import payments_bp
+from api.blueprints.medical_records import medical_bp
+from api.blueprints.appointments import appointments_bp
+from api.blueprints.pets import pets_bp
+from api.blueprints.clients import clients_bp
+from api.blueprints.staff_management import staff_bp
+from api.blueprints.services import services_bp
+from api.blueprints.clinic_management import clinic_mgmt_bp
+from api.blueprints.clinic_requests import clinic_requests_bp
+from api.blueprints.auth import auth_bp
+import os
 
 ENV = "development" if os.getenv("FLASK_DEBUG") == "1" else "production"
 static_file_dir = os.path.join(os.path.dirname(
     os.path.realpath(__file__)), '../dist/')
-app = Flask(__name__)
+
+app = Flask(__name__, template_folder='api/templates')
 app.url_map.strict_slashes = False
 
-# database condiguration
+# --- CONFIGURACIÓN DE CORS ---
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+
+# Configuración JWT
+app.config["JWT_SECRET_KEY"] = os.getenv(
+    "JWT_SECRET_KEY", "super-secret-key-cambiame")
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=48)
+app.config["JWT_DECODE_LEEWAY"] = timedelta(hours=12)
+jwt = JWTManager(app)
+
+# Configuración de Mail
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = (
+    'PetHealth & Spa Support', os.getenv('MAIL_USERNAME'))
+
+mail = Mail(app)
+
+# Database configuration
 db_url = os.getenv("DATABASE_URL")
 if db_url is not None:
     app.config['SQLALCHEMY_DATABASE_URI'] = db_url.replace(
@@ -31,23 +65,35 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 MIGRATE = Migrate(app, db, compare_type=True)
 db.init_app(app)
 
-# add the admin
+# Setup Admin y Commands
 setup_admin(app)
-
-# add the admin
 setup_commands(app)
 
-# Add all endpoints form the API with a "api" prefix
-app.register_blueprint(api, url_prefix='/api')
+with app.app_context():
+    print("Iniciando validación de SuperAdmins...")
+    setup_initial_admins()
 
-# Handle/serialize errors like a JSON object
+# Importar blueprints
+
+# --- 1. REGISTRO DE LOS BLUEPRINTS (IMPORTANTE: DEBE IR ANTES DE LAS RUTAS DE ARCHIVOS) ---
+app.register_blueprint(auth_bp, url_prefix='/api')
+app.register_blueprint(clinic_requests_bp, url_prefix='/api')
+app.register_blueprint(clinic_mgmt_bp, url_prefix='/api')
+app.register_blueprint(services_bp, url_prefix='/api')
+app.register_blueprint(staff_bp, url_prefix='/api')
+app.register_blueprint(clients_bp, url_prefix='/api')
+app.register_blueprint(pets_bp, url_prefix='/api')
+app.register_blueprint(appointments_bp, url_prefix='/api')
+app.register_blueprint(medical_bp, url_prefix='/api')
+app.register_blueprint(payments_bp, url_prefix='/api')
+app.register_blueprint(utils_bp, url_prefix='/api')
 
 
 @app.errorhandler(APIException)
 def handle_invalid_usage(error):
     return jsonify(error.to_dict()), error.status_code
 
-# generate sitemap with all your endpoints
+# --- 2. RUTAS DE SERVIDO DE FRONTEND (SIEMPRE AL FINAL) ---
 
 
 @app.route('/')
@@ -56,17 +102,16 @@ def sitemap():
         return generate_sitemap(app)
     return send_from_directory(static_file_dir, 'index.html')
 
-# any other endpoint will try to serve it like a static file
+
 @app.route('/<path:path>', methods=['GET'])
 def serve_any_other_file(path):
     if not os.path.isfile(os.path.join(static_file_dir, path)):
         path = 'index.html'
     response = send_from_directory(static_file_dir, path)
-    response.cache_control.max_age = 0  # avoid cache memory
+    response.cache_control.max_age = 0
     return response
 
 
-# this only runs if `$ python src/main.py` is executed
 if __name__ == '__main__':
     PORT = int(os.environ.get('PORT', 3001))
     app.run(host='0.0.0.0', port=PORT, debug=True)

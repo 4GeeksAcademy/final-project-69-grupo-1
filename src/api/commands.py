@@ -1,34 +1,36 @@
-
 import click
-from api.models import db, User
+from api.models import db, User, RoleEnum
 
-"""
-In this file, you can add as many commands as you want using the @app.cli.command decorator
-Flask commands are usefull to run cronjobs or tasks outside of the API but sill in integration 
-with youy database, for example: Import the price of bitcoin every night as 12am
-"""
 def setup_commands(app):
-    
-    """ 
-    This is an example command "insert-test-users" that you can run from the command line
-    by typing: $ flask insert-test-users 5
-    Note: 5 is the number of users to add
-    """
-    @app.cli.command("insert-test-users") # name of our command
-    @click.argument("count") # argument of out command
-    def insert_test_users(count):
-        print("Creating test users")
-        for x in range(1, int(count) + 1):
-            user = User()
-            user.email = "test_user" + str(x) + "@test.com"
-            user.password = "123456"
-            user.is_active = True
-            db.session.add(user)
+    @app.cli.command("setup-team-admins")
+    def setup_team_admins():
+        print("Creando cuentas de Super Admin para el equipo...")
+        
+        team_members = [
+            {"email": "admin1@pethealth.com", "password": "superpassword123", "full_name": "Admin Uno"},
+            {"email": "admin2@pethealth.com", "password": "superpassword456", "full_name": "Admin Dos"},
+            {"email": "admin3@pethealth.com", "password": "superpassword789", "full_name": "Admin Tres"}
+        ]
+
+        for member in team_members:
+            user_exists = User.query.filter_by(email=member["email"]).first()
+            if not user_exists:
+                new_user = User(
+                    email=member["email"],
+                    full_name=member["full_name"],
+                    role=RoleEnum.SUPER_ADMIN,
+                    is_active=True
+                )
+                new_user.password(member["password"])
+                
+                db.session.add(new_user)
+                print(f"✅ Usuario {member['email']} creado exitosamente.")
+            else:
+                print(f"⚠️ El usuario {member['email']} ya existe. Saltando...")
+
+        try:
             db.session.commit()
-            print("User: ", user.email, " created.")
-
-        print("All test users created")
-
-    @app.cli.command("insert-test-data")
-    def insert_test_data():
-        pass
+            print("--- Proceso finalizado con éxito ---")
+        except Exception as error:
+            db.session.rollback()
+            print(f"❌ Error al guardar en la base de datos: {error}")
