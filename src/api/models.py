@@ -1,9 +1,18 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone
+from sqlalchemy import func, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import String, Integer, Float, Boolean, DateTime, Text, Enum as SQLEnum
 from werkzeug.security import generate_password_hash, check_password_hash
 import enum
+from typing import Optional, List
 
 db = SQLAlchemy()
+
+
+def utcnow():
+    return datetime.now(timezone.utc)
+
 
 # Enums para estandarizar estados y roles
 
@@ -40,32 +49,33 @@ class PaymentMethod(enum.Enum):
 
 class ClinicRequest(db.Model):
     __tablename__ = 'clinic_requests'
-    id = db.Column(db.Integer, primary_key=True)
-    # 'EMPRESA' o 'INDEPENDIENTE'
-    tipo_solicitud = db.Column(db.String(20), nullable=False)
 
-    # Datos de la sede
-    nombre_clinica = db.Column(db.String(120), nullable=False)
-    rif_empresa = db.Column(db.String(50), nullable=True)  # Solo para Empresa
-    # Para Indep o Admin de Empresa
-    cedula_identidad = db.Column(db.String(50), nullable=False)
-    direccion = db.Column(db.String(255), nullable=False)
-    telefono = db.Column(db.String(50), nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-
-    # Datos del Admin (solo si es Empresa)
-    nombre_admin = db.Column(db.String(120), nullable=True)
-
-    # Documentos (URLs de Cloudinary/S3)
-    url_cedula = db.Column(db.String(255), nullable=False)
-    url_rif = db.Column(db.String(255), nullable=True)
-    url_registro_mercantil = db.Column(db.String(255), nullable=True)
-    url_permiso_sanitario = db.Column(db.String(255), nullable=True)
-    url_titulo_profesional = db.Column(db.String(255), nullable=True)
-
-    status = db.Column(db.Enum(RequestStatus), default=RequestStatus.PENDING)
-    created_at = db.Column(
-        db.DateTime, default=lambda: datetime.now(timezone.utc))
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tipo_solicitud: Mapped[str] = mapped_column(String(20), nullable=False)
+    nombre_clinica: Mapped[str] = mapped_column(String(120), nullable=False)
+    rif_empresa: Mapped[Optional[str]] = mapped_column(
+        String(50), nullable=True)
+    cedula_identidad: Mapped[str] = mapped_column(String(50), nullable=False)
+    direccion: Mapped[str] = mapped_column(String(255), nullable=False)
+    telefono: Mapped[str] = mapped_column(String(50), nullable=False)
+    email: Mapped[str] = mapped_column(
+        String(120), unique=True, nullable=False)
+    nombre_admin: Mapped[Optional[str]] = mapped_column(
+        String(120), nullable=True)
+    url_cedula: Mapped[str] = mapped_column(String(255), nullable=False)
+    url_rif: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    url_registro_mercantil: Mapped[Optional[str]
+                                   ] = mapped_column(String(255), nullable=True)
+    url_permiso_sanitario: Mapped[Optional[str]
+                                  ] = mapped_column(String(255), nullable=True)
+    url_titulo_profesional: Mapped[Optional[str]
+                                   ] = mapped_column(String(255), nullable=True)
+    status: Mapped[RequestStatus] = mapped_column(
+        SQLEnum(RequestStatus, native_enum=False), nullable=False,
+        default=RequestStatus.PENDING)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        server_default=func.now(), default=utcnow)
 
     def serialize(self):
         return {
@@ -91,31 +101,33 @@ class ClinicRequest(db.Model):
 
 class Clinic(db.Model):
     __tablename__ = 'clinics'
-    id = db.Column(db.Integer, primary_key=True)
-    tipo_sede = db.Column(db.String(20), nullable=False)
-    nombre = db.Column(db.String(120), nullable=False)
-    rif = db.Column(db.String(50), unique=True, nullable=False)
-    ubicacion = db.Column(db.String(255), nullable=False)
-    # Nuevo campo de contacto
-    telefono = db.Column(db.String(50), nullable=True)
-    # Nuevo campo de contacto
-    correo = db.Column(db.String(120), nullable=True)
-    is_active = db.Column(db.Boolean, default=True)
-    # Motivo de suspension que hablamos antes
-    suspension_reason = db.Column(db.String(255), nullable=True)
-    created_at = db.Column(
-        db.DateTime, default=lambda: datetime.now(timezone.utc))
-    staff_code = db.Column(db.String(20), unique=True, nullable=True)
 
-    # Relaciones con borrado en cascada para poder eliminar clínicas
-    users = db.relationship('User', back_populates='clinic',
-                            cascade="all, delete", foreign_keys='User.clinic_id')
-    appointments = db.relationship(
-        'Appointment', back_populates='clinic', cascade="all, delete")
-    payments = db.relationship(
-        'Payment', back_populates='clinic', cascade="all, delete")
-    services = db.relationship(
-        'Service', back_populates='clinic', cascade="all, delete")
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tipo_sede: Mapped[str] = mapped_column(String(20), nullable=False)
+    nombre: Mapped[str] = mapped_column(String(120), nullable=False)
+    rif: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    ubicacion: Mapped[str] = mapped_column(String(255), nullable=False)
+    telefono: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    correo: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    suspension_reason: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        server_default=func.now(), default=utcnow)
+    staff_code: Mapped[Optional[str]] = mapped_column(
+        String(20), unique=True, nullable=True)
+
+    users: Mapped[List["User"]] = relationship(
+        back_populates='clinic',
+        cascade="all, delete",
+        foreign_keys="User.clinic_id")
+    appointments: Mapped[List["Appointment"]] = relationship(
+        back_populates='clinic', cascade="all, delete")
+    payments: Mapped[List["Payment"]] = relationship(
+        back_populates='clinic', cascade="all, delete")
+    services: Mapped[List["Service"]] = relationship(
+        back_populates='clinic', cascade="all, delete")
 
     def serialize(self):
         return {
@@ -134,30 +146,34 @@ class Clinic(db.Model):
 
 class User(db.Model):
     __tablename__ = 'users'
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(255), nullable=False)
-    full_name = db.Column(db.String(120), nullable=False)
-    role = db.Column(db.Enum(RoleEnum),
-                     default=RoleEnum.CLIENTE, nullable=False)
-    # Nuevo: para vetar doctores o clientes
-    is_active = db.Column(db.Boolean, default=True, nullable=False)
-    clinic_id = db.Column(db.Integer, db.ForeignKey(
-        'clinics.id'), nullable=True)
-    staff_cod = db.Column(db.String(20), db.ForeignKey(
-        'clinics.staff_code'), nullable=True)
-    must_change_password = db.Column(
-        db.Boolean(), nullable=False, default=False)
 
-    # Relaciones
-    clinic = db.relationship(
-        'Clinic', back_populates='users', foreign_keys=[clinic_id])
-    pets = db.relationship('Pet', back_populates='owner',
-                           cascade="all, delete")
-    appointments_as_doctor = db.relationship(
-        'Appointment', back_populates='doctor')
-    medical_records = db.relationship('MedicalRecord', back_populates='doctor')
-    payments_processed = db.relationship('Payment', back_populates='cashier')
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(
+        String(120), unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    full_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    role: Mapped[RoleEnum] = mapped_column(
+        SQLEnum(RoleEnum, native_enum=False), nullable=False,
+        default=RoleEnum.CLIENTE)
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False)
+    clinic_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey('clinics.id'), nullable=True)
+    staff_cod: Mapped[Optional[str]] = mapped_column(
+        ForeignKey('clinics.staff_code'), nullable=True)
+    must_change_password: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False)
+
+    clinic: Mapped[Optional["Clinic"]] = relationship(
+        back_populates='users', foreign_keys=[clinic_id])
+    pets: Mapped[List["Pet"]] = relationship(
+        back_populates='owner', cascade="all, delete")
+    appointments_as_doctor: Mapped[List["Appointment"]] = relationship(
+        back_populates='doctor')
+    medical_records: Mapped[List["MedicalRecord"]] = relationship(
+        back_populates='doctor')
+    payments_processed: Mapped[List["Payment"]] = relationship(
+        back_populates='cashier')
 
     @property
     def password(self):
@@ -165,7 +181,6 @@ class User(db.Model):
 
     @password.setter
     def password(self, password):
-        # Cada vez que hagas user.password = "nueva_clave", se ejecutará esto:
         self.password_hash = generate_password_hash(password)
 
     def set_password(self, password):
@@ -190,19 +205,20 @@ class User(db.Model):
 
 class Pet(db.Model):
     __tablename__ = 'pets'
-    id = db.Column(db.Integer, primary_key=True)
-    nombre = db.Column(db.String(80), nullable=False)
-    especie = db.Column(db.String(50), nullable=False)
-    raza = db.Column(db.String(80), nullable=True)
-    edad = db.Column(db.Integer, nullable=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
-    # Relaciones
-    owner = db.relationship('User', back_populates='pets')
-    appointments = db.relationship(
-        'Appointment', back_populates='pet', cascade="all, delete")
-    medical_history = db.relationship(
-        'MedicalRecord', back_populates='pet', cascade="all, delete")
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(80), nullable=False)
+    especie: Mapped[str] = mapped_column(String(50), nullable=False)
+    raza: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    edad: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey('users.id'), nullable=False)
+
+    owner: Mapped["User"] = relationship(back_populates='pets')
+    appointments: Mapped[List["Appointment"]] = relationship(
+        back_populates='pet', cascade="all, delete")
+    medical_history: Mapped[List["MedicalRecord"]] = relationship(
+        back_populates='pet', cascade="all, delete")
 
     def serialize(self):
         return {
@@ -217,19 +233,24 @@ class Pet(db.Model):
 
 class Service(db.Model):
     __tablename__ = 'services'
-    id = db.Column(db.Integer, primary_key=True)
-    clinic_id = db.Column(db.Integer, db.ForeignKey(
-        'clinics.id'), nullable=False)
-    name = db.Column(db.String(120), nullable=False)
-    price_usd = db.Column(db.Float, nullable=False, default=0.0)
-    description = db.Column(db.String(255), nullable=True)
-    is_active = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(
-        db.DateTime, default=lambda: datetime.now(timezone.utc))
 
-    clinic = db.relationship('Clinic', back_populates='services')
-    appointments = db.relationship(
-        'Appointment', back_populates='service', cascade='all, delete')
+    id: Mapped[int] = mapped_column(primary_key=True)
+    clinic_id: Mapped[int] = mapped_column(
+        ForeignKey('clinics.id'), nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    price_usd: Mapped[float] = mapped_column(
+        Float, nullable=False, default=0.0)
+    description: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True)
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        server_default=func.now(), default=utcnow)
+
+    clinic: Mapped["Clinic"] = relationship(back_populates='services')
+    appointments: Mapped[List["Appointment"]] = relationship(
+        back_populates='service', cascade='all, delete')
 
     def serialize(self):
         return {
@@ -244,31 +265,36 @@ class Service(db.Model):
 
 class Appointment(db.Model):
     __tablename__ = 'appointments'
-    id = db.Column(db.Integer, primary_key=True)
-    date_time = db.Column(db.DateTime, nullable=False)
-    time = db.Column(db.String(5), nullable=False)
-    status = db.Column(db.Enum(AppointmentStatus),
-                       default=AppointmentStatus.PROGRAMADA)
-    tipo = db.Column(db.String(50), nullable=False)
-    service_id = db.Column(db.Integer, db.ForeignKey(
-        'services.id'), nullable=True)
-    service_name = db.Column(db.String(120), nullable=True)
-    service_price_usd = db.Column(db.Float, nullable=True, default=0.0)
 
-    clinic_id = db.Column(db.Integer, db.ForeignKey(
-        'clinics.id'), nullable=False)
-    pet_id = db.Column(db.Integer, db.ForeignKey('pets.id'), nullable=False)
-    doctor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    payment = db.relationship(
-        'Payment', back_populates='appointment', uselist=False, cascade="all, delete")
+    id: Mapped[int] = mapped_column(primary_key=True)
+    date_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    time: Mapped[str] = mapped_column(String(5), nullable=False)
+    status: Mapped[AppointmentStatus] = mapped_column(
+        SQLEnum(AppointmentStatus, native_enum=False), nullable=False,
+        default=AppointmentStatus.PROGRAMADA)
+    tipo: Mapped[str] = mapped_column(String(50), nullable=False)
+    service_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey('services.id'), nullable=True)
+    service_name: Mapped[Optional[str]] = mapped_column(
+        String(120), nullable=True)
+    service_price_usd: Mapped[Optional[float]] = mapped_column(
+        Float, nullable=True, default=0.0)
+    clinic_id: Mapped[int] = mapped_column(
+        ForeignKey('clinics.id'), nullable=False)
+    pet_id: Mapped[int] = mapped_column(ForeignKey('pets.id'), nullable=False)
+    doctor_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey('users.id'), nullable=True)
 
-    # Relaciones
-    clinic = db.relationship('Clinic', back_populates='appointments')
-    pet = db.relationship('Pet', back_populates='appointments')
-    doctor = db.relationship('User', back_populates='appointments_as_doctor')
-    service = db.relationship('Service', back_populates='appointments')
-    record = db.relationship(
-        'MedicalRecord', back_populates='appointment', uselist=False, cascade="all, delete")
+    clinic: Mapped["Clinic"] = relationship(back_populates='appointments')
+    pet: Mapped["Pet"] = relationship(back_populates='appointments')
+    doctor: Mapped[Optional["User"]] = relationship(
+        back_populates='appointments_as_doctor')
+    service: Mapped[Optional["Service"]] = relationship(
+        back_populates='appointments')
+    payment: Mapped[Optional["Payment"]] = relationship(
+        back_populates='appointment', uselist=False, cascade="all, delete")
+    record: Mapped[Optional["MedicalRecord"]] = relationship(
+        back_populates='appointment', uselist=False, cascade="all, delete")
 
     def serialize(self):
         return {
@@ -294,34 +320,28 @@ class Appointment(db.Model):
 
 class MedicalRecord(db.Model):
     __tablename__ = 'medical_records'
-    id = db.Column(db.Integer, primary_key=True)
-    fecha = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    price = db.Column(db.Float, nullable=False, default=0.0)
 
-    # --- Datos de Triaje (Toma de vitales) ---
-    motivo = db.Column(db.String(200), nullable=False)
-    # Guardado en Kilogramos (ej: 12.5)
-    peso = db.Column(db.Float, nullable=True)
-    # Guardado en °C (ej: 38.5)
-    temperatura = db.Column(db.Float, nullable=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    fecha: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        server_default=func.now(), default=utcnow)
+    price: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    motivo: Mapped[str] = mapped_column(String(200), nullable=False)
+    peso: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    temperatura: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    diagnostico: Mapped[str] = mapped_column(Text, nullable=False)
+    tratamiento: Mapped[str] = mapped_column(Text, nullable=False)
+    examenes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    pet_id: Mapped[int] = mapped_column(ForeignKey('pets.id'), nullable=False)
+    doctor_id: Mapped[int] = mapped_column(
+        ForeignKey('users.id'), nullable=False)
+    appointment_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey('appointments.id'), nullable=True)
 
-    # --- Evaluación Médica ---
-    diagnostico = db.Column(db.Text, nullable=False)
-    tratamiento = db.Column(db.Text, nullable=False)
-    # Qué pruebas de laboratorio se mandan
-    examenes = db.Column(db.Text, nullable=True)
-
-    # --- Relaciones ---
-    pet_id = db.Column(db.Integer, db.ForeignKey('pets.id'), nullable=False)
-    doctor_id = db.Column(
-        db.Integer, db.ForeignKey('users.id'), nullable=False)
-    appointment_id = db.Column(db.Integer, db.ForeignKey(
-        'appointments.id'), nullable=True)
-
-    # Relaciones (se mantienen igual)
-    pet = db.relationship('Pet', back_populates='medical_history')
-    doctor = db.relationship('User', back_populates='medical_records')
-    appointment = db.relationship('Appointment', back_populates='record')
+    pet: Mapped["Pet"] = relationship(back_populates='medical_history')
+    doctor: Mapped["User"] = relationship(back_populates='medical_records')
+    appointment: Mapped[Optional["Appointment"]
+                        ] = relationship(back_populates='record')
 
     def serialize(self):
         return {
@@ -340,21 +360,24 @@ class MedicalRecord(db.Model):
 
 class Payment(db.Model):
     __tablename__ = 'payments'
-    id = db.Column(db.Integer, primary_key=True)
-    clinic_id = db.Column(db.Integer, db.ForeignKey(
-        'clinics.id'), nullable=False)
-    appointment_id = db.Column(db.Integer, db.ForeignKey(
-        'appointments.id'), unique=True, nullable=False)
-    cashier_id = db.Column(
-        db.Integer, db.ForeignKey('users.id'), nullable=False)
-    amount = db.Column(db.Float, nullable=False)
-    payment_method = db.Column(db.Enum(PaymentMethod), nullable=False)
-    created_at = db.Column(
-        db.DateTime, default=lambda: datetime.now(timezone.utc))
 
-    clinic = db.relationship('Clinic', back_populates='payments')
-    appointment = db.relationship('Appointment', back_populates='payment')
-    cashier = db.relationship('User', back_populates='payments_processed')
+    id: Mapped[int] = mapped_column(primary_key=True)
+    clinic_id: Mapped[int] = mapped_column(
+        ForeignKey('clinics.id'), nullable=False)
+    appointment_id: Mapped[int] = mapped_column(
+        ForeignKey('appointments.id'), unique=True, nullable=False)
+    cashier_id: Mapped[int] = mapped_column(
+        ForeignKey('users.id'), nullable=False)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    payment_method: Mapped[PaymentMethod] = mapped_column(
+        SQLEnum(PaymentMethod, native_enum=False), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        server_default=func.now(), default=utcnow)
+
+    clinic: Mapped["Clinic"] = relationship(back_populates='payments')
+    appointment: Mapped["Appointment"] = relationship(back_populates='payment')
+    cashier: Mapped["User"] = relationship(back_populates='payments_processed')
 
     def serialize(self):
         return {
