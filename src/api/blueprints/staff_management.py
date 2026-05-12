@@ -81,7 +81,7 @@ def invite_staff():
         expires_delta=timedelta(hours=48)
     )
 
-    frontend_url = os.getenv("VITE_FROTEND_URL", "http://localhost:3000")
+    frontend_url = os.getenv("VITE_FRONTEND_URL", "http://localhost:3000")
     invite_link = f"{frontend_url}/registro-empleado?token={invite_token}"
 
     # ENVÍO DEL CORREO

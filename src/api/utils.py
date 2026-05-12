@@ -176,7 +176,7 @@ def send_registration_notification(clinic_data, admin_data):
         clinic_name=clinic_data.get("name"),
         admin_name=admin_data.get("full_name"),
         admin_email=admin_data.get("email"),
-        review_url=f"{os.getenv('VITE_FROTEND_URL')}/superadmin/dashboard"
+        review_url=f"{os.getenv('VITE_FRONTEND_URL')}/superadmin/dashboard"
     )
 
     # Enviamos a cada Super Admin que tenga un correo configurado
@@ -209,7 +209,7 @@ def send_approval_email(user_email, admin_name, clinic_name, temp_pw):
         clinic_name=clinic_name,
         user_email=user_email,
         temp_pw=temp_pw,
-        login_url=f"{os.getenv('VITE_FROTEND_URL')}/login"
+        login_url=f"{os.getenv('VITE_FRONTEND_URL')}/login"
     )
     return send_resend_email(user_email, "🎉 ¡Tu clínica ha sido aprobada! - NexPetly", body_html)
 
@@ -219,7 +219,7 @@ def send_password_reset_email(user_email, full_name, temp_pw):
         "emails/password_reset.html",
         full_name=full_name,
         temp_pw=temp_pw,
-        login_url=f"{os.getenv('VITE_FROTEND_URL')}/login"
+        login_url=f"{os.getenv('VITE_FRONTEND_URL')}/login"
     )
     return send_resend_email(user_email, "Recuperación de contraseña - NexPetly", body_html)
 
@@ -272,6 +272,6 @@ def send_welcome_staff_email(user_email, staff_name, clinic_name, role_name, tem
         role_name=role_name,
         user_email=user_email,
         temp_pw=temp_pw,
-        login_url=f"{os.getenv('VITE_FROTEND_URL')}/login"
+        login_url=f"{os.getenv('VITE_FRONTEND_URL')}/login"
     )
     return send_resend_email(user_email, f"Acceso a NexPetly - {clinic_name}", body_html)
