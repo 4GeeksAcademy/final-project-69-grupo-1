@@ -66,7 +66,9 @@ MIGRATE = Migrate(app, db, compare_type=True)
 db.init_app(app)
 
 # Setup Admin y Commands
-setup_admin(app)
+if os.getenv("FLASK_ENV") == "develop":
+    setup_admin(app)
+
 setup_commands(app)
 
 with app.app_context():
