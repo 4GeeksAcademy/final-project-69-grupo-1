@@ -255,15 +255,17 @@ export const SuperAdminDashboard = () => {
                         <p className="text-muted mb-0">Gestión global de sedes, usuarios, servicios y registros médicos.</p>
                     </div>
                     <div className="col-md-4 text-md-end d-flex gap-2 justify-content-md-end">
-                        <a
-                            href={import.meta.env.VITE_BACKEND_URL + "/admin"}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="btn btn-outline-secondary btn-sm rounded-pill px-3"
-                            title="Acceso directo a la base de datos"
-                        >
-                            <i className="fas fa-database me-1"></i> Flask-Admin
-                        </a>
+                        {import.meta.env.VITE_ENV === "develop" && (
+                            <a
+                                href={import.meta.env.VITE_BACKEND_URL + "/admin"}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="btn btn-outline-secondary btn-sm rounded-pill px-3"
+                                title="Acceso directo a la base de datos"
+                            >
+                                <i className="fas fa-database me-1"></i> Flask-Admin
+                            </a>
+                        )}
                         <span className="badge bg-white text-primary border border-primary px-3 py-2 rounded-pill shadow-sm">
                             Super Admin: {store.user?.full_name}
                         </span>
